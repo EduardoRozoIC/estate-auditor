@@ -4965,17 +4965,23 @@ elif modulo == "📊 Reporte Proyecto":
                     # Lista reutilizable de los KPIs de Factibilidad (mismos valores
                     # ya calculados) para mostrarlos también en la pestaña Indicadores
                     # sin recalcular → consistencia garantizada. Formato (label, valor, fuente).
+                    # Orden solicitado (grilla 4 col):
+                    #   Ingresos · Total Costos · Utilidad · Margen FCO
+                    #   TIR Op · TIR Inv · Equity Req Total · Honorarios Totales
+                    #   Equity IC · Honorarios IC · Equity Socio · Honorarios Socio
                     st.session_state["_factib_kpis_proy"] = [
-                        ("Ingresos Totales",        fmt_cop_fc(ventas_total),     "1.0 Ventas"),
-                        ("Total Costos",            fmt_cop_fc(costos_total_pyg), "9.0 − 6.0 (excluye Financieros)"),
-                        ("Utilidad",                fmt_cop_fc(utilidad_pyg),     f"{utilidad_pct:.1f}% s/ ventas"),
-                        ("Margen Operativo",        f"{margen_pyg:.1f}%",         "FCO / Ingresos"),
-                        ("TIR Operativa",           tir_fco_str,                  "Anual efectiva · sin financieros"),
-                        ("TIR Inversionista",       tir_inv_str,                  "XIRR aportes/reintegros IC"),
-                        ("Equity Requerido IC",     fmt_cop_fc(equity_ic_fc),     "Σ 13.2 Aportes IC"),
-                        ("Equity Requerido Socio",  fmt_cop_fc(equity_socio_fc),  "Σ 14.2 Aportes Socio"),
-                        ("Honorarios IC",           fmt_cop_fc(hon_ic_fc),        "5.22 + 5.42 + 5.62 + 5.82"),
-                        ("Honorarios Socio",        fmt_cop_fc(hon_socio_fc),     "5.24 + 5.44 + 5.64 + 5.84"),
+                        ("Ingresos Totales",        fmt_cop_fc(ventas_total),                    "1.0 Ventas"),
+                        ("Total Costos",            fmt_cop_fc(costos_total_pyg),                "9.0 − 6.0 (excluye Financieros)"),
+                        ("Utilidad",                fmt_cop_fc(utilidad_pyg),                    f"{utilidad_pct:.1f}% s/ ventas"),
+                        ("Margen FCO",              f"{margen_pyg:.1f}%",                        "FCO / Ingresos"),
+                        ("TIR Operativa",           tir_fco_str,                                 "Anual efectiva · sin financieros"),
+                        ("TIR Inversionista",       tir_inv_str,                                 "XIRR aportes/reintegros IC"),
+                        ("Equity Requerido Total",  fmt_cop_fc(equity_ic_fc + equity_socio_fc),  "Σ 13.2 + 14.2"),
+                        ("Honorarios Totales",      fmt_cop_fc(hon_ic_fc + hon_socio_fc),        "Honorarios IC + Socio"),
+                        ("Equity Requerido IC",     fmt_cop_fc(equity_ic_fc),                    "Σ 13.2 Aportes IC"),
+                        ("Honorarios IC",           fmt_cop_fc(hon_ic_fc),                       "5.22 + 5.42 + 5.62 + 5.82"),
+                        ("Equity Requerido Socio",  fmt_cop_fc(equity_socio_fc),                 "Σ 14.2 Aportes Socio"),
+                        ("Honorarios Socio",        fmt_cop_fc(hon_socio_fc),                    "5.24 + 5.44 + 5.64 + 5.84"),
                     ]
 
                     if is_compact_pyg:
@@ -5470,31 +5476,33 @@ elif modulo == "📊 Reporte Proyecto":
                         total_ingresos  = sum(_get_total_snap(s, "1.0") for s in snaps)
                         total_lote      = sum(_get_total_snap(s, "2.0") for s in snaps)
 
-                        inds = []
-                        inds.append(("Unidades Vendidas",
-                                     f"{total_unidades:,.0f}" if total_unidades else "N/A", "17.1"))
-                        if total_unidades and total_unidades != 0:
-                            inds.append(("Vr. Prom. Venta / Unidad",
-                                         f"${total_ingresos/total_unidades:,.0f}", "1.0 / 17.1"))
-                        else:
-                            inds.append(("Vr. Prom. Venta / Unidad", "N/A", "—"))
-                        if total_m2_ventas and total_m2_ventas != 0:
-                            inds.append(("Vr. Prom. Venta / m² vendible",
-                                         f"${total_ingresos/total_m2_ventas:,.0f}", "1.0 / 17.3"))
-                        else:
-                            inds.append(("Vr. Prom. Venta / m² vendible", "N/A", "—"))
-                        if total_m2_ventas and total_unidades and total_unidades != 0:
-                            inds.append(("Área Promedio / Unidad",
-                                         f"{total_m2_ventas/total_unidades:,.1f} m²", "17.3 / 17.1"))
-                        else:
-                            inds.append(("Área Promedio / Unidad", "N/A", "—"))
-                        if total_m2_ventas and total_m2_ventas != 0 and total_lote != 0:
-                            inds.append(("Vr. Lote / m² vendible",
-                                         f"${abs(total_lote)/total_m2_ventas:,.0f}", "2.0 / 17.3"))
-                        else:
-                            inds.append(("Vr. Lote / m² vendible", "N/A", "—"))
+                        total_cd = sum(_get_total_snap(s, "3.0") for s in snaps)
 
-                        # Ritmo de Ventas: cuento periodos activos en UNIÓN entre snaps
+                        # ── Básicos (se calculan y guardan; el orden se arma al final) ──
+                        t_unidades = ("Unidades Vendidas",
+                                      f"{total_unidades:,.0f}" if total_unidades else "N/A", "17.1")
+                        if total_unidades and total_unidades != 0:
+                            t_vr_unidad = ("Vr. Prom. Venta / Unidad",
+                                           f"${total_ingresos/total_unidades:,.0f}", "1.0 / 17.1")
+                        else:
+                            t_vr_unidad = ("Vr. Prom. Venta / Unidad", "N/A", "—")
+                        if total_m2_ventas and total_m2_ventas != 0:
+                            t_vr_m2 = ("Vr. Prom. Venta / m² vendible",
+                                       f"${total_ingresos/total_m2_ventas:,.0f}", "1.0 / 17.3")
+                        else:
+                            t_vr_m2 = ("Vr. Prom. Venta / m² vendible", "N/A", "—")
+                        if total_m2_ventas and total_unidades and total_unidades != 0:
+                            t_area = ("Área Promedio / Unidad",
+                                      f"{total_m2_ventas/total_unidades:,.1f} m²", "17.3 / 17.1")
+                        else:
+                            t_area = ("Área Promedio / Unidad", "N/A", "—")
+                        if total_m2_ventas and total_m2_ventas != 0 and total_lote != 0:
+                            t_vr_lote = ("Vr. Lote / m² vendible",
+                                         f"${abs(total_lote)/total_m2_ventas:,.0f}", "2.0 / 17.3")
+                        else:
+                            t_vr_lote = ("Vr. Lote / m² vendible", "N/A", "—")
+
+                        # Ritmo de Ventas: periodos activos en UNIÓN entre snaps
                         periodos_activos_set = set()
                         for s in snaps:
                             linea_u = builder.get_linea_exacta(s, "17.1", Participacion.TOTAL)
@@ -5504,27 +5512,72 @@ elif modulo == "📊 Reporte Proyecto":
                                         periodos_activos_set.add(f)
                         periodos_activos = len(periodos_activos_set)
                         if total_unidades and total_unidades > 0 and periodos_activos > 0:
-                            inds.append(("Ritmo de Ventas",
-                                         f"{total_unidades/periodos_activos:,.1f} Un/mes",
-                                         f"{periodos_activos} meses activos"))
+                            t_ritmo = ("Ritmo de Ventas",
+                                       f"{total_unidades/periodos_activos:,.1f} Un/mes",
+                                       f"{periodos_activos} meses activos")
                         else:
-                            inds.append(("Ritmo de Ventas", "N/A", "—"))
+                            t_ritmo = ("Ritmo de Ventas", "N/A", "—")
 
-                        fco_t = sum(_get_total_snap(s, "10.0") for s in snaps)
+                        # Incidencia Lote
                         if total_ingresos != 0:
-                            inds.append(("Margen FCO", f"{fco_t/total_ingresos*100:.1f}%", "10.0 / 1.0"))
+                            t_inc_lote = ("Incidencia Lote",
+                                          f"{abs(total_lote)/total_ingresos*100:.1f}%", "2.0 / 1.0")
                         else:
-                            inds.append(("Margen FCO", "N/A", "—"))
-                        if total_ingresos != 0:
-                            inds.append(("Incidencia Lote",
-                                         f"{abs(total_lote)/total_ingresos*100:.1f}%", "2.0 / 1.0"))
+                            t_inc_lote = ("Incidencia Lote", "N/A", "—")
 
-                        # ── Indicadores avanzados (comercial / costos / financiero / operativo) ──
+                        # NUEVO — Incidencia Costo Directo / Ventas
+                        if total_ingresos != 0:
+                            t_inc_cd = ("Incidencia Costo Directo",
+                                        f"{abs(total_cd)/total_ingresos*100:.1f}%", "3.0 / 1.0")
+                        else:
+                            t_inc_cd = ("Incidencia Costo Directo", "N/A", "—")
+
+                        # NUEVO — Duración Construcción (meses activos de 3.22, fallback 3.0)
+                        def _dur_meses(idx):
+                            activos = set()
+                            for s in snaps:
+                                l = builder.get_linea_exacta(s, idx, Participacion.TOTAL)
+                                if l:
+                                    for f, v in l.valores.items():
+                                        if v != 0.0:
+                                            activos.add(str(f)[:10])
+                            if not activos:
+                                return None
+                            ds = sorted(date.fromisoformat(x) for x in activos)
+                            return (ds[-1].year - ds[0].year) * 12 + (ds[-1].month - ds[0].month) + 1
+                        _dc_idx = "3.22"
+                        _dur = _dur_meses("3.22")
+                        if _dur is None:
+                            _dur, _dc_idx = _dur_meses("3.0"), "3.0"
+                        t_dur_con = (("Duración Construcción", f"{_dur} meses", _dc_idx)
+                                     if _dur else ("Duración Construcción", "N/A", "3.22"))
+
+                        # ── Avanzados (dict por nombre) ──
+                        _adv = {}
                         try:
-                            inds.extend(compute_indicadores_avanzados(snaps, builder))
-                        except Exception as _ex_ind:
-                            inds.append(("Indicadores Avanzados", "Error", str(_ex_ind)))
-                        return inds
+                            for _t in compute_indicadores_avanzados(snaps, builder):
+                                _adv[_t[0]] = _t
+                        except Exception:
+                            _adv = {}
+                        def _A(name, label):
+                            return _adv.get(name, (label, "N/A", "—"))
+
+                        # ── Orden solicitado (grilla 4 col) ──
+                        return [
+                            t_area,
+                            t_unidades,
+                            _A("Punto de Equilibrio Comercial", "Punto Equilibrio Comercial"),
+                            _A("Duración Comercial Total", "Duración Comercial Total"),
+                            t_ritmo,
+                            t_vr_unidad,
+                            t_vr_m2,
+                            _A("Vr. m² Inicial → Final", "Vr. m² Inicial → Final"),
+                            _A("Costo Construcción / m² vendible", "Costo Construcción / m² vendible"),
+                            t_inc_cd,
+                            t_dur_con,
+                            t_vr_lote,
+                            t_inc_lote,
+                        ]
 
                     def _render_indicadores(inds, cols_per_row=4, fuente_prefix=True):
                         for i in range(0, len(inds), cols_per_row):
@@ -5546,10 +5599,9 @@ elif modulo == "📊 Reporte Proyecto":
                     st.markdown("#### 🌐 Consolidado")
 
                     # Grupo 1 — KPIs de la pestaña Factibilidad (mismos valores, sin
-                    # recalcular). Se omite "Margen Operativo" porque equivale a
-                    # "Margen FCO" (10.0/1.0), que ya está en los operativos → no duplica.
-                    _factib_proy = [t for t in st.session_state.get("_factib_kpis_proy", [])
-                                    if t[0] != "Margen Operativo"]
+                    # recalcular → consistencia garantizada). Incluye Margen FCO; los
+                    # operativos ya no lo repiten.
+                    _factib_proy = st.session_state.get("_factib_kpis_proy", [])
                     if _factib_proy:
                         st.markdown("##### 💰 Factibilidad (P&G)")
                         _render_indicadores(_factib_proy, fuente_prefix=False)
