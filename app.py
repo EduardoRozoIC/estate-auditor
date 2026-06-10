@@ -5579,21 +5579,45 @@ elif modulo == "📊 Reporte Proyecto":
                             t_inc_lote,
                         ]
 
-                    def _render_indicadores(inds, cols_per_row=4, fuente_prefix=True):
-                        for i in range(0, len(inds), cols_per_row):
-                            cols = st.columns(cols_per_row)
-                            for j, col in enumerate(cols):
-                                idx = i + j
-                                if idx < len(inds):
-                                    nombre_ind, valor_ind, fuente_ind = inds[idx]
-                                    _sub = f"Fuente: {fuente_ind}" if fuente_prefix else fuente_ind
-                                    with col:
-                                        st.markdown(f"""
-                                        <div class="kpi-box">
-                                          <div class="kpi-label">{nombre_ind}</div>
-                                          <div class="kpi-value">{valor_ind}</div>
-                                          <div class="kpi-sub">{_sub}</div>
-                                        </div>""", unsafe_allow_html=True)
+                    def _ind_card(col, item, fuente_prefix):
+                        nombre_ind, valor_ind, fuente_ind = item
+                        _sub = f"Fuente: {fuente_ind}" if fuente_prefix else fuente_ind
+                        with col:
+                            st.markdown(f"""
+                            <div class="kpi-box">
+                              <div class="kpi-label">{nombre_ind}</div>
+                              <div class="kpi-value">{valor_ind}</div>
+                              <div class="kpi-sub">{_sub}</div>
+                            </div>""", unsafe_allow_html=True)
+
+                    def _render_indicadores(inds, cols_per_row=4, fuente_prefix=True, transpose=False):
+                        if not inds:
+                            return
+                        # Filas en la disposición normal (row-major, ancho cols_per_row)
+                        rows = [inds[i:i + cols_per_row] for i in range(0, len(inds), cols_per_row)]
+                        if not transpose:
+                            for row in rows:
+                                cols = st.columns(cols_per_row)
+                                for j, item in enumerate(row):
+                                    _ind_card(cols[j], item, fuente_prefix)
+                        else:
+                            # Transponer (estilo Excel): cada fila original se vuelve una
+                            # columna. La fila 0 pasa a ser la 1ª columna, etc.
+                            nrows = len(rows)
+                            for new_r in range(cols_per_row):
+                                cols = st.columns(nrows)
+                                for c in range(nrows):
+                                    if new_r < len(rows[c]):
+                                        _ind_card(cols[c], rows[c][new_r], fuente_prefix)
+
+                    def _seccion_header(titulo, key):
+                        """Header de sección con toggle 'Transponer'. Devuelve el estado."""
+                        _h1, _h2 = st.columns([4, 1])
+                        with _h1:
+                            st.markdown(f"##### {titulo}")
+                        with _h2:
+                            return st.toggle("🔁 Transponer", key=key,
+                                             help="Intercambia filas por columnas (como en Excel).")
 
                     # ── Consolidado ──
                     st.markdown("#### 🌐 Consolidado")
@@ -5603,12 +5627,12 @@ elif modulo == "📊 Reporte Proyecto":
                     # operativos ya no lo repiten.
                     _factib_proy = st.session_state.get("_factib_kpis_proy", [])
                     if _factib_proy:
-                        st.markdown("##### 💰 Factibilidad (P&G)")
-                        _render_indicadores(_factib_proy, fuente_prefix=False)
+                        _t_factib = _seccion_header("💰 Factibilidad (P&G)", "factib_transpose")
+                        _render_indicadores(_factib_proy, fuente_prefix=False, transpose=_t_factib)
 
                     # Grupo 2 — indicadores operativos y comerciales.
-                    st.markdown("##### 📏 Operativos y Comerciales")
-                    _render_indicadores(_compute_indicadores(snapshots))
+                    _t_oper = _seccion_header("📏 Operativos y Comerciales", "oper_transpose")
+                    _render_indicadores(_compute_indicadores(snapshots), transpose=_t_oper)
 
                     # ── Por proyecto (expandibles) ──
                     if len(snapshots) > 1:
