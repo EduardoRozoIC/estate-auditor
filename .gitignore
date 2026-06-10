@@ -1,0 +1,30 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Node (frontend abandonado) ──
+node_modules/
+dist/
+.vite/
+
+# ── Streamlit / caché local de la app ──
+.streamlit/secrets.toml
+.cache/
+*.pkl
+*.parquet
+
+# ── Datos fuente (no versionar Excel pesados) ──
+*.xlsx
+*.xls
+~$*
+
+# ── Sistema operativo / editores ──
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/
+*.log

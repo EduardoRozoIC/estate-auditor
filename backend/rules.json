@@ -1,0 +1,849 @@
+{
+  "validaciones": [
+    {
+      "id": "VAL_001_TOT",
+      "nombre": "Cuadre de Totales: 1.0 == 1.2+1.4+1.8",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.0) == LINE(1.2) + LINE(1.4) + LINE(1.8)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.0) == LINE(1.2) + LINE(1.4) + LINE(1.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_002_MES",
+      "nombre": "Cuadre Mensual: 1.0 == 1.2+1.4+1.8",
+      "descripcion": "Verifica mes a mes: LINE(1.0) == LINE(1.2) + LINE(1.4) + LINE(1.8)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.0) == LINE(1.2) + LINE(1.4) + LINE(1.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_003_TOT",
+      "nombre": "Cuadre de Totales: 1.0 == 1.3+1.8",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.0) == LINE(1.3) + LINE(1.8)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.0) == LINE(1.3) + LINE(1.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_004_MES",
+      "nombre": "Cuadre Mensual: 1.0 == 1.3+1.8",
+      "descripcion": "Verifica mes a mes: LINE(1.0) == LINE(1.3) + LINE(1.8)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.0) == LINE(1.3) + LINE(1.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_005_TOT",
+      "nombre": "Cuadre de Totales: 1.1 == 1.2",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.1) == LINE(1.2)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.1) == LINE(1.2)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_006_MES",
+      "nombre": "Cuadre Mensual: 1.1 == 1.2",
+      "descripcion": "Verifica mes a mes: LINE(1.1) == LINE(1.2)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.1) == LINE(1.2)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_007_TOT",
+      "nombre": "Cuadre de Totales: 1.2 + 1.4 == 1.3",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.2) + LINE(1.4) == LINE(1.3)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.2) + LINE(1.4) == LINE(1.3)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_008_MES",
+      "nombre": "Cuadre Mensual: 1.2 + 1.4 == 1.3",
+      "descripcion": "Verifica mes a mes: LINE(1.2) + LINE(1.4) == LINE(1.3)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.2) + LINE(1.4) == LINE(1.3)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_009_TOT",
+      "nombre": "Cuadre de Totales: 1.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.2) == LINE(1.22) + LINE(1.24) + LINE(1.26) + LINE(1.28)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.2) == LINE(1.22) + LINE(1.24) + LINE(1.26) + LINE(1.28)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_010_MES",
+      "nombre": "Cuadre Mensual: 1.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(1.2) == LINE(1.22) + LINE(1.24) + LINE(1.26) + LINE(1.28)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.2) == LINE(1.22) + LINE(1.24) + LINE(1.26) + LINE(1.28)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_011_TOT",
+      "nombre": "Cuadre de Totales: 1.4 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(1.4) == LINE(1.42) + LINE(1.44) + LINE(1.46) + LINE(1.48)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(1.4) == LINE(1.42) + LINE(1.44) + LINE(1.46) + LINE(1.48)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_012_MES",
+      "nombre": "Cuadre Mensual: 1.4 hijos",
+      "descripcion": "Verifica mes a mes: LINE(1.4) == LINE(1.42) + LINE(1.44) + LINE(1.46) + LINE(1.48)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(1.4) == LINE(1.42) + LINE(1.44) + LINE(1.46) + LINE(1.48)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_013_TOT",
+      "nombre": "Cuadre de Totales: 2.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(2.0) == LINE(2.2) + LINE(2.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(2.0) == LINE(2.2) + LINE(2.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_014_MES",
+      "nombre": "Cuadre Mensual: 2.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(2.0) == LINE(2.2) + LINE(2.4)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(2.0) == LINE(2.2) + LINE(2.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_015_TOT",
+      "nombre": "Cuadre de Totales: 2.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(2.2) == LINE(2.22) + LINE(2.24) + LINE(2.26)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(2.2) == LINE(2.22) + LINE(2.24) + LINE(2.26)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_016_MES",
+      "nombre": "Cuadre Mensual: 2.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(2.2) == LINE(2.22) + LINE(2.24) + LINE(2.26)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(2.2) == LINE(2.22) + LINE(2.24) + LINE(2.26)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_017_TOT",
+      "nombre": "Cuadre de Totales: 3.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(3.0) == LINE(3.2) + LINE(3.4) + LINE(3.6) + LINE(3.8)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(3.0) == LINE(3.2) + LINE(3.4) + LINE(3.6) + LINE(3.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_018_MES",
+      "nombre": "Cuadre Mensual: 3.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(3.0) == LINE(3.2) + LINE(3.4) + LINE(3.6) + LINE(3.8)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(3.0) == LINE(3.2) + LINE(3.4) + LINE(3.6) + LINE(3.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_019_TOT",
+      "nombre": "Cuadre de Totales: 3.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(3.2) == LINE(3.22) + LINE(3.24)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(3.2) == LINE(3.22) + LINE(3.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_020_MES",
+      "nombre": "Cuadre Mensual: 3.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(3.2) == LINE(3.22) + LINE(3.24)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(3.2) == LINE(3.22) + LINE(3.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_021_TOT",
+      "nombre": "Cuadre de Totales: 4.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(4.0) == LINE(4.2) + LINE(4.4) + LINE(4.6) + LINE(4.8)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(4.0) == LINE(4.2) + LINE(4.4) + LINE(4.6) + LINE(4.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_022_MES",
+      "nombre": "Cuadre Mensual: 4.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(4.0) == LINE(4.2) + LINE(4.4) + LINE(4.6) + LINE(4.8)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(4.0) == LINE(4.2) + LINE(4.4) + LINE(4.6) + LINE(4.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_023_TOT",
+      "nombre": "Cuadre de Totales: 5.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(5.0) == LINE(5.2) + LINE(5.4) + LINE(5.6) + LINE(5.8)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(5.0) == LINE(5.2) + LINE(5.4) + LINE(5.6) + LINE(5.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_024_MES",
+      "nombre": "Cuadre Mensual: 5.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(5.0) == LINE(5.2) + LINE(5.4) + LINE(5.6) + LINE(5.8)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(5.0) == LINE(5.2) + LINE(5.4) + LINE(5.6) + LINE(5.8)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_025_TOT",
+      "nombre": "Cuadre de Totales: 5.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(5.2) == LINE(5.22) + LINE(5.24)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(5.2) == LINE(5.22) + LINE(5.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_026_MES",
+      "nombre": "Cuadre Mensual: 5.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(5.2) == LINE(5.22) + LINE(5.24)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(5.2) == LINE(5.22) + LINE(5.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_027_TOT",
+      "nombre": "Cuadre de Totales: 5.4 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(5.4) == LINE(5.42) + LINE(5.44)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(5.4) == LINE(5.42) + LINE(5.44)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_028_MES",
+      "nombre": "Cuadre Mensual: 5.4 hijos",
+      "descripcion": "Verifica mes a mes: LINE(5.4) == LINE(5.42) + LINE(5.44)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(5.4) == LINE(5.42) + LINE(5.44)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_029_TOT",
+      "nombre": "Cuadre de Totales: 5.6 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(5.6) == LINE(5.62) + LINE(5.64)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(5.6) == LINE(5.62) + LINE(5.64)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_030_MES",
+      "nombre": "Cuadre Mensual: 5.6 hijos",
+      "descripcion": "Verifica mes a mes: LINE(5.6) == LINE(5.62) + LINE(5.64)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(5.6) == LINE(5.62) + LINE(5.64)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_031_TOT",
+      "nombre": "Cuadre de Totales: 5.8 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(5.8) == LINE(5.82) + LINE(5.84)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(5.8) == LINE(5.82) + LINE(5.84)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_032_MES",
+      "nombre": "Cuadre Mensual: 5.8 hijos",
+      "descripcion": "Verifica mes a mes: LINE(5.8) == LINE(5.82) + LINE(5.84)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(5.8) == LINE(5.82) + LINE(5.84)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_033_TOT",
+      "nombre": "Cuadre de Totales: 6.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(6.0) == LINE(6.2) + LINE(6.4) + LINE(6.6)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(6.0) == LINE(6.2) + LINE(6.4) + LINE(6.6)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_034_MES",
+      "nombre": "Cuadre Mensual: 6.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(6.0) == LINE(6.2) + LINE(6.4) + LINE(6.6)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(6.0) == LINE(6.2) + LINE(6.4) + LINE(6.6)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_035_TOT",
+      "nombre": "Cuadre de Totales: 6.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(6.2) == LINE(6.22) + LINE(6.23) + LINE(6.24)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(6.2) == LINE(6.22) + LINE(6.23) + LINE(6.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_036_MES",
+      "nombre": "Cuadre Mensual: 6.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(6.2) == LINE(6.22) + LINE(6.23) + LINE(6.24)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(6.2) == LINE(6.22) + LINE(6.23) + LINE(6.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_037_TOT",
+      "nombre": "Cuadre de Totales: ABS(7.0) <= 1.3 * 4%",
+      "descripcion": "Verifica sobre el acumulado del proyecto: ABS(LINE(7.0)) <= LINE(1.3) * 0.04",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "ABS(LINE(7.0)) <= LINE(1.3) * 0.04",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_038_TOT",
+      "nombre": "Cuadre de Totales: ABS(7.0) <= 1000",
+      "descripcion": "Verifica sobre el acumulado del proyecto: ABS(LINE(7.0)) <= 1000",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "ABS(LINE(7.0)) <= 1000",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_039_TOT",
+      "nombre": "Cuadre de Totales: 9.0 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(9.0) == LINE(2.0) + LINE(3.0) + LINE(4.0) + LINE(5.0) + LINE(6.0) + LINE(7.0) + LINE(8.0)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(9.0) == LINE(2.0) + LINE(3.0) + LINE(4.0) + LINE(5.0) + LINE(6.0) + LINE(7.0) + LINE(8.0)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_040_MES",
+      "nombre": "Cuadre Mensual: 9.0 hijos",
+      "descripcion": "Verifica mes a mes: LINE(9.0) == LINE(2.0) + LINE(3.0) + LINE(4.0) + LINE(5.0) + LINE(6.0) + LINE(7.0) + LINE(8.0)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(9.0) == LINE(2.0) + LINE(3.0) + LINE(4.0) + LINE(5.0) + LINE(6.0) + LINE(7.0) + LINE(8.0)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_041_TOT",
+      "nombre": "Cuadre de Totales: 10.0 = 1.0 - 9.0",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(10.0) == LINE(1.0) - LINE(9.0)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(10.0) == LINE(1.0) - LINE(9.0)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_042_MES",
+      "nombre": "Cuadre Mensual: 10.0 = 1.0 - 9.0",
+      "descripcion": "Verifica mes a mes: LINE(10.0) == LINE(1.0) - LINE(9.0)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(10.0) == LINE(1.0) - LINE(9.0)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_043_MES",
+      "nombre": "Cuadre Mensual: 11.0 = 11.2 - 11.4",
+      "descripcion": "Verifica mes a mes: LINE(11.0) == LINE(11.2) - LINE(11.4)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(11.0) == LINE(11.2) - LINE(11.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_044_TOT",
+      "nombre": "Cuadre de Totales: 11.2 == 11.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(11.2) == LINE(11.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(11.2) == LINE(11.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_045_TOT",
+      "nombre": "Cuadre de Totales: 11.5 > 11.2",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(11.5) > LINE(11.2)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(11.5) > LINE(11.2)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_046_TOT",
+      "nombre": "Cuadre de Totales: 11.5 > 11.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(11.5) > LINE(11.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(11.5) > LINE(11.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_047_MES",
+      "nombre": "Cuadre Mensual: 12.0 = 12.2 - 12.4",
+      "descripcion": "Verifica mes a mes: LINE(12.0) == LINE(12.2) - LINE(12.4)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(12.0) == LINE(12.2) - LINE(12.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_048_TOT",
+      "nombre": "Cuadre de Totales: 12.2 == 12.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(12.2) == LINE(12.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(12.2) == LINE(12.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_049_TOT",
+      "nombre": "Cuadre de Totales: 12.5 > 12.2",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(12.5) > LINE(12.2)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(12.5) > LINE(12.2)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_050_TOT",
+      "nombre": "Cuadre de Totales: 12.5 > 12.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(12.5) > LINE(12.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(12.5) > LINE(12.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_051_TOT",
+      "nombre": "Cuadre de Totales: 13.0 = 13.2 - 13.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(13.0) == LINE(13.2) - LINE(13.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(13.0) == LINE(13.2) - LINE(13.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_052_MES",
+      "nombre": "Cuadre Mensual: 13.0 = 13.2 - 13.4",
+      "descripcion": "Verifica mes a mes: LINE(13.0) == LINE(13.2) - LINE(13.4)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(13.0) == LINE(13.2) - LINE(13.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_053_TOT",
+      "nombre": "Cuadre de Totales: 14.0 = 14.2 + 14.4",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(14.0) == LINE(14.2) + LINE(14.4)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(14.0) == LINE(14.2) + LINE(14.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_054_MES",
+      "nombre": "Cuadre Mensual: 14.0 = 14.2 + 14.4",
+      "descripcion": "Verifica mes a mes: LINE(14.0) == LINE(14.2) + LINE(14.4)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(14.0) == LINE(14.2) + LINE(14.4)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_055_TOT",
+      "nombre": "Cuadre de Totales: -(13.0+14.0) == 10.0",
+      "descripcion": "Verifica sobre el acumulado del proyecto: 0 - LINE(13.0) - LINE(14.0) == LINE(10.0)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "0 - LINE(13.0) - LINE(14.0) == LINE(10.0)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_056_TOT",
+      "nombre": "Cuadre de Totales: ABS(15.0) <= 1000",
+      "descripcion": "Verifica sobre el acumulado del proyecto: ABS(LINE(15.0)) <= 1000",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "ABS(LINE(15.0)) <= 1000",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_057_TOT",
+      "nombre": "Cuadre de Totales: ABS(16.0) <= 1000",
+      "descripcion": "Verifica sobre el acumulado del proyecto: ABS(LINE(16.0)) <= 1000",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "ABS(LINE(16.0)) <= 1000",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_058_TOT",
+      "nombre": "Cuadre de Totales: 17.1 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(17.1) == LINE(17.12) + LINE(17.14)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(17.1) == LINE(17.12) + LINE(17.14)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_059_MES",
+      "nombre": "Cuadre Mensual: 17.1 hijos",
+      "descripcion": "Verifica mes a mes: LINE(17.1) == LINE(17.12) + LINE(17.14)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(17.1) == LINE(17.12) + LINE(17.14)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_060_TOT",
+      "nombre": "Cuadre de Totales: 17.2 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(17.2) == LINE(17.22) + LINE(17.24)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(17.2) == LINE(17.22) + LINE(17.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_061_MES",
+      "nombre": "Cuadre Mensual: 17.2 hijos",
+      "descripcion": "Verifica mes a mes: LINE(17.2) == LINE(17.22) + LINE(17.24)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(17.2) == LINE(17.22) + LINE(17.24)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_062_TOT",
+      "nombre": "Cuadre de Totales: 17.3 hijos",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(17.3) == LINE(17.32) + LINE(17.34)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(17.3) == LINE(17.32) + LINE(17.34)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_063_MES",
+      "nombre": "Cuadre Mensual: 17.3 hijos",
+      "descripcion": "Verifica mes a mes: LINE(17.3) == LINE(17.32) + LINE(17.34)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(17.3) == LINE(17.32) + LINE(17.34)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_064_TOT",
+      "nombre": "Cuadre de Totales: 17.2 == 1.3",
+      "descripcion": "Verifica sobre el acumulado del proyecto: LINE(17.2) == LINE(1.3)",
+      "severidad": "advertencia",
+      "activa": true,
+      "tipo": "matematica_total",
+      "config": {
+        "expresion": "LINE(17.2) == LINE(1.3)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    },
+    {
+      "id": "VAL_065_MES",
+      "nombre": "Cuadre Mensual: 17.2 == 1.3",
+      "descripcion": "Verifica mes a mes: LINE(17.2) == LINE(1.3)",
+      "severidad": "critico",
+      "activa": true,
+      "tipo": "matematica_mensual",
+      "config": {
+        "expresion": "LINE(17.2) == LINE(1.3)",
+        "tolerancia_absoluta": 100.0,
+        "tolerancia_relativa": 0.001
+      }
+    }
+  ]
+}
