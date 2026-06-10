@@ -49,4 +49,22 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
 
 ## Fase 1 — Eficiencia y estabilidad (2026-06-10)
 
-(Se documenta a medida que se aplica.)
+### 1.1 Caché de parseo de Excel
+- `backend/folder_loader.py`: `load_database_from_folder` ahora acepta un
+  parámetro opcional `parse_fn` (compatible hacia atrás; por defecto usa
+  `parse_base_excel`).
+- `app.py`: parser cacheado `_parse_excel_cached` con `@st.cache_data`
+  (keyed por bytes del archivo). Re-cargar un Excel idéntico ya no lo
+  re-parsea. Inyectado en la carga por carpeta y en la subida manual.
+
+### 1.2 Persistencia de la base en disco
+- Tras cada carga exitosa se guarda `{records, upload_response, files_processed,
+  saved_at}` en `.cache/last_base.pkl` (carpeta ignorada por git).
+- Al arrancar, si no hay base en sesión pero existe el archivo, se
+  **restaura automáticamente** → recargar la página o reabrir la app ya no
+  obliga a re-procesar los Excel.
+- En "📂 Cargar Base" aparece un aviso "Base restaurada del último guardado
+  (fecha)" con botón **🗑️ Limpiar caché**.
+- Helpers nuevos en `app.py`: `_persist_base`, `_restore_base`,
+  `_clear_base_cache` (todos best-effort: nunca tumban la app).
+- Verificado: round-trip de pickle de los modelos Pydantic funciona.

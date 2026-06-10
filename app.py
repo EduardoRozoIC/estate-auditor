@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Dict, Optional
@@ -649,6 +649,67 @@ if "report" not in st.session_state:
     st.session_state.report = None
 
 # ─────────────────────────────────────────────
+# CACHÉ DE PARSEO Y PERSISTENCIA DE LA BASE
+# ─────────────────────────────────────────────
+# Fase 1.1 — Evita re-parsear un Excel idéntico (mismo contenido de bytes).
+#            st.cache_data devuelve una copia, así que mutar `version` aguas
+#            abajo no corrompe la caché.
+# Fase 1.2 — Persiste la base parseada en disco para restaurarla tras recargar
+#            la página o reabrir la app, sin volver a parsear los Excel.
+
+@st.cache_data(show_spinner=False, max_entries=128)
+def _parse_excel_cached(file_bytes: bytes):
+    return parse_base_excel(file_bytes)
+
+_CACHE_DIR = Path(__file__).parent / ".cache"
+_BASE_CACHE_FILE = _CACHE_DIR / "last_base.pkl"
+
+def _persist_base():
+    """Guarda la base actual (records + response + meta) en disco."""
+    import pickle
+    try:
+        _CACHE_DIR.mkdir(exist_ok=True)
+        with open(_BASE_CACHE_FILE, "wb") as f:
+            pickle.dump({
+                "records": st.session_state.records,
+                "upload_response": st.session_state.upload_response,
+                "files_processed": st.session_state.get("files_processed", []),
+                "saved_at": datetime.now(),
+            }, f)
+    except Exception:
+        pass  # la persistencia es best-effort; nunca debe tumbar la app
+
+def _restore_base():
+    """Restaura la base desde disco. Devuelve la fecha de guardado o None."""
+    import pickle
+    try:
+        with open(_BASE_CACHE_FILE, "rb") as f:
+            data = pickle.load(f)
+        st.session_state.records = data["records"]
+        st.session_state.upload_response = data["upload_response"]
+        st.session_state.files_processed = data.get("files_processed", [])
+        st.session_state.auto_load_ok = True
+        return data.get("saved_at")
+    except Exception:
+        return None
+
+def _clear_base_cache():
+    """Borra el archivo de base persistida."""
+    try:
+        if _BASE_CACHE_FILE.exists():
+            _BASE_CACHE_FILE.unlink()
+    except Exception:
+        pass
+
+# Auto-restauración al arrancar: si no hay base en sesión pero existe una
+# guardada en disco, se restaura para que recargar la página no obligue a
+# reprocesar los Excel.
+if st.session_state.records is None and _BASE_CACHE_FILE.exists():
+    _ts_restore = _restore_base()
+    if _ts_restore is not None:
+        st.session_state["base_restored_at"] = _ts_restore
+
+# ─────────────────────────────────────────────
 # SIN AUTO-CARGA — el usuario elige qué archivos cargar
 # ─────────────────────────────────────────────
 # Antes la app cargaba TODA la carpeta al abrir (muy lento). Ahora la lista
@@ -874,6 +935,25 @@ if modulo == "📂 Cargar Base":
         "se etiquetan como `YYYY-MM-DD-1`, `YYYY-MM-DD-2`, … según la fecha de modificación."
     )
 
+    # ── Aviso de base restaurada desde caché (Fase 1.2) ──
+    if st.session_state.get("base_restored_at") is not None and st.session_state.records:
+        _ts = st.session_state["base_restored_at"]
+        _ts_str = _ts.strftime("%Y-%m-%d %H:%M") if hasattr(_ts, "strftime") else str(_ts)
+        _ci1, _ci2 = st.columns([4, 1])
+        with _ci1:
+            st.info(
+                f"♻️ Base restaurada automáticamente del último guardado "
+                f"(**{_ts_str}**). Para usar datos frescos, vuelve a cargar abajo."
+            )
+        with _ci2:
+            if st.button("🗑️ Limpiar caché", help="Borra la base guardada en disco."):
+                _clear_base_cache()
+                for _k in ("records", "upload_response", "files_processed",
+                           "auto_load_ok", "base_restored_at"):
+                    st.session_state.pop(_k, None)
+                st.session_state.records = None
+                st.rerun()
+
     def _do_load(folder_path: Path, selected: Optional[list] = None):
         """Carga la base desde la carpeta, filtrando archivos si selected != None."""
         _pbar_ph = st.empty()
@@ -894,7 +974,8 @@ if modulo == "📂 Cargar Base":
 
         try:
             records, response, files_meta = load_database_from_folder(
-                folder_path, progress_callback=_cb, selected_filenames=selected
+                folder_path, progress_callback=_cb, selected_filenames=selected,
+                parse_fn=_parse_excel_cached,
             )
             st.session_state.records = records
             st.session_state.upload_response = response
@@ -902,6 +983,7 @@ if modulo == "📂 Cargar Base":
             st.session_state.report = None
             st.session_state.auto_load_ok = True
             st.session_state.auto_load_error = None
+            _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
             _pbar_ph.empty(); _status_ph.empty()
             return True
         except Exception as e:
@@ -1010,7 +1092,7 @@ if modulo == "📂 Cargar Base":
                     # Ordenar por nombre como proxy (no hay mtime para uploaded files)
                     for uf in sorted(uploaded_files, key=lambda x: x.name):
                         try:
-                            records, response = parse_base_excel(uf.getvalue())
+                            records, response = _parse_excel_cached(uf.getvalue())
                         except Exception as e:
                             all_warnings.append(f"❌ Error procesando '{uf.name}': {e}")
                             continue
@@ -1052,6 +1134,7 @@ if modulo == "📂 Cargar Base":
                         st.session_state.files_processed = files_meta
                         st.session_state.report = None
                         st.session_state.auto_load_ok = True
+                        _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
                         st.success(f"✅ {len(files_meta)} archivo(s) procesado(s) · {len(all_records):,} registros")
                         st.rerun()
                 except Exception as e:

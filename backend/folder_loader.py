@@ -90,6 +90,7 @@ def load_database_from_folder(
     folder_path: Path,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
     selected_filenames: Optional[List[str]] = None,
+    parse_fn: Optional[Callable[[bytes], Tuple[List[BaseRecord], UploadResponse]]] = None,
 ) -> Tuple[List[BaseRecord], UploadResponse, List[FileMeta]]:
     """
     Escanea NO recursivamente folder_path, procesa cada .xlsx/.xls y
@@ -100,10 +101,15 @@ def load_database_from_folder(
         progress_callback: Callback opcional para reportar avance.
         selected_filenames: Si se entrega, SOLO procesa los archivos cuyos
             nombres aparezcan en esta lista. Si es None, procesa todos.
+        parse_fn: Parser de bytes Excel a usar. Por defecto `parse_base_excel`.
+            La app Streamlit inyecta aquí una versión cacheada para evitar
+            re-parsear archivos idénticos.
 
     Returns:
         records_combinados, upload_response_con_versiones, lista_archivos_procesados
     """
+    if parse_fn is None:
+        parse_fn = parse_base_excel
     folder_path = Path(folder_path)
     if not folder_path.exists() or not folder_path.is_dir():
         raise FileNotFoundError(f"Carpeta no accesible: {folder_path}")
@@ -144,7 +150,7 @@ def load_database_from_folder(
         try:
             with open(file_path, "rb") as f:
                 excel_bytes = f.read()
-            records, response = parse_base_excel(excel_bytes)
+            records, response = parse_fn(excel_bytes)
         except Exception as e:
             all_warnings.append(f"❌ Error procesando '{file_path.name}': {e}")
             continue
