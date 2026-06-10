@@ -5597,21 +5597,14 @@ elif modulo == "📊 Reporte Proyecto":
                         "**Canje (m²)**; el resto se considera **Pago ($)**."
                     )
 
-                    # 1) Localizar el índice de la línea "Lote Bruto" (sub de "2")
-                    def _find_lote_bruto_idx():
-                        cand = None
-                        for s in snapshots:
-                            for l in s.lineas:
-                                if (l.participacion == Participacion.TOTAL
-                                        and l.indice.split(".")[0] == "2"):
-                                    nm = (l.nombre or "").strip().lower()
-                                    if "lote bruto" in nm:
-                                        return l.indice, (l.nombre or "Lote Bruto")
-                                    if "lote" in nm and cand is None:
-                                        cand = (l.indice, l.nombre or "Lote")
-                        return cand if cand else ("2.0", "Lote")
-
-                    lote_idx, lote_nombre = _find_lote_bruto_idx()
+                    # 1) Lote Bruto = línea EXACTA 2.22 (no sumar padres ni hermanos).
+                    lote_idx = "2.22"
+                    lote_nombre = "Lote Bruto"
+                    for s in snapshots:
+                        _l = builder.get_linea_exacta(s, lote_idx, Participacion.TOTAL)
+                        if _l and _l.nombre:
+                            lote_nombre = _l.nombre
+                            break
 
                     # 2) Serie mensual consolidada (alineada a fechas_union). El lote
                     #    se muestra en positivo (valor a pagar).
