@@ -689,6 +689,7 @@ def _restore_base():
         st.session_state.upload_response = data["upload_response"]
         st.session_state.files_processed = data.get("files_processed", [])
         st.session_state.auto_load_ok = True
+        _nueva_firma_base()
         return data.get("saved_at")
     except Exception:
         return None
@@ -700,6 +701,30 @@ def _clear_base_cache():
             _BASE_CACHE_FILE.unlink()
     except Exception:
         pass
+
+# Fase 1.3 — Memoización de snapshots por sesión.
+# `builder.build` hace un barrido O(n) de TODA la base y se invoca en bucles
+# en cada rerun (cambiar un toggle reconstruía todo). Aquí se memoiza el
+# resultado por (firma_base, proyecto, fecha, versión). Es seguro porque los
+# snapshots se consumen en modo solo-lectura (get_linea_exacta / sum_prefijo).
+# La caché se invalida sola: al cargar una base nueva se renueva `base_sig` y
+# se vacía el memo.
+
+def _nueva_firma_base():
+    """Renueva la firma de la base cargada y limpia el memo de snapshots."""
+    st.session_state["base_sig"] = datetime.now().isoformat()
+    st.session_state["_snap_memo"] = {}
+
+def _build_snapshot(proyecto, fecha_obj, version):
+    """Versión memoizada de builder.build sobre la base en sesión."""
+    sig = st.session_state.get("base_sig", "none")
+    memo = st.session_state.setdefault("_snap_memo", {})
+    key = (sig, proyecto, fecha_obj.isoformat(), version)
+    snap = memo.get(key)
+    if snap is None:
+        snap = builder.build(st.session_state.records, proyecto, fecha_obj, version=version)
+        memo[key] = snap
+    return snap
 
 # Auto-restauración al arrancar: si no hay base en sesión pero existe una
 # guardada en disco, se restaura para que recargar la página no obligue a
@@ -983,6 +1008,7 @@ if modulo == "📂 Cargar Base":
             st.session_state.report = None
             st.session_state.auto_load_ok = True
             st.session_state.auto_load_error = None
+            _nueva_firma_base()  # Fase 1.3 — invalidar memo de snapshots
             _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
             _pbar_ph.empty(); _status_ph.empty()
             return True
@@ -1134,6 +1160,7 @@ if modulo == "📂 Cargar Base":
                         st.session_state.files_processed = files_meta
                         st.session_state.report = None
                         st.session_state.auto_load_ok = True
+                        _nueva_firma_base()  # Fase 1.3 — invalidar memo de snapshots
                         _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
                         st.success(f"✅ {len(files_meta)} archivo(s) procesado(s) · {len(all_records):,} registros")
                         st.rerun()
@@ -1311,7 +1338,7 @@ elif modulo == "📈 Reporte Inversionista":
                         ultima_f = sorted(fechas_p, reverse=True)[0]
                         f_obj, v_obj = parse_fecha_label(ultima_f)
 
-                    snap = builder.build(st.session_state.records, p, f_obj, version=v_obj)
+                    snap = _build_snapshot(p, f_obj, v_obj)
                     snapshots.append(snap)
 
                 # ── 1. HELPER DE EXTRACCIÓN MÚLTIPLE ──
@@ -3866,7 +3893,7 @@ elif modulo == "📊 Reporte Proyecto":
                 # Construir snapshots para cada proyecto seleccionado
                 # (cada proyecto puede tener la misma versión sólo si su archivo aporta esa combinación)
                 snapshots = [
-                    builder.build(st.session_state.records, p, fecha_obj, version=version_obj)
+                    _build_snapshot(p, fecha_obj, version_obj)
                     for p in fc_proyectos
                 ]
                 # Snapshot de referencia (primero) — usado por helpers legacy
@@ -5806,9 +5833,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
 
     # ── CONSTRUIR SNAPSHOT ─────────────────────
     try:
-        fcp_snapshot = builder.build(
-            st.session_state.records, fcp_proy, fcp_fecha_snap_obj, version=fcp_version_obj
-        )
+        fcp_snapshot = _build_snapshot(fcp_proy, fcp_fecha_snap_obj, fcp_version_obj)
     except Exception as ex:
         st.error(f"❌ Error al construir el snapshot: {ex}")
         st.stop()

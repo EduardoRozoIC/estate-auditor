@@ -68,3 +68,31 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
 - Helpers nuevos en `app.py`: `_persist_base`, `_restore_base`,
   `_clear_base_cache` (todos best-effort: nunca tumban la app).
 - Verificado: round-trip de pickle de los modelos Pydantic funciona.
+
+### 1.3 Memoización de snapshots por sesión
+- `builder.build` hace un barrido O(n) de toda la base y se invocaba en
+  bucles **en cada rerun** (cambiar un toggle reconstruía todo).
+- Nuevos helpers `_build_snapshot` (memo) y `_nueva_firma_base` (invalida la
+  caché al cargar base nueva). Memo guardado en `st.session_state["_snap_memo"]`,
+  keyed por `(firma_base, proyecto, fecha, versión)`.
+- Reemplazados los 3 sitios de reconstrucción en caliente (Reporte
+  Inversionista, Reporte Proyecto, Flujo Control). El de Auditoría se dejó
+  intacto (se pasa al motor con `include_snapshot`, no es ruta caliente).
+- **Seguro:** verificado que los snapshots se consumen en modo solo-lectura
+  (`get_linea_exacta`/`sum_prefijo_por_mes`); no hay mutaciones en `app.py`.
+- Verificado con `streamlit.testing.v1.AppTest`: el script corre sin
+  excepciones.
+
+### Pendiente / no ejecutado (requieren prueba interactiva o refactor previo)
+- **1.4 `st.fragment` en la gráfica Flujo IC:** implicaría extraer un bloque
+  de ~500 líneas (controles + gráfica + KPIs + tooltips SVG) a una función.
+  Alto riesgo sin poder probar interactivamente todos los estados de toggles.
+  Recomendado hacerlo DESPUÉS del split modular (1.5).
+- **1.5 Partir `app.py` (~6.200 líneas) en módulos** (`views/`, `ui/`): mecánico
+  pero grande; debe verificarse vista por vista en el navegador.
+- **1.6 Unificar duplicados** (builders SVG y KPI cards de los dos reportes):
+  cambia comportamiento visual; necesita prueba de regresión visual.
+
+> Nota: la deprecación de `use_container_width` (Streamlit la quita después de
+> 2025-12-31) es **preexistente** y conviene migrarla a `width=...` en un paso
+> aparte.
