@@ -96,3 +96,41 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
 > Nota: la deprecación de `use_container_width` (Streamlit la quita después de
 > 2025-12-31) es **preexistente** y conviene migrarla a `width=...` en un paso
 > aparte.
+
+---
+
+## Ajustes funcionales (2026-06-10)
+
+### Etiquetas de línea acumulada cortadas (Reporte Inversionista)
+- Las barras tenían `cliponaxis=False` pero el trazo de la línea acumulada no,
+  por lo que Plotly recortaba sus etiquetas en el borde del eje. Añadido
+  `cliponaxis=False` a los dos trazos de línea acumulada (consolidado y
+  por-proyecto) → las etiquetas "top center" se dibujan en el margen superior.
+
+### KPIs de Factibilidad replicados en pestaña Indicadores (Reporte Proyecto)
+- La pestaña **Indicadores** ahora muestra, en la sección Consolidado, un grupo
+  **💰 Factibilidad (P&G)** con los mismos KPIs de la pestaña Factibilidad
+  (Ingresos, Total Costos, Utilidad, TIR Operativa, TIR Inversionista,
+  Equity IC/Socio, Honorarios IC/Socio) + el grupo operativo existente.
+- Sin duplicar: se omite "Margen Operativo" porque equivale a "Margen FCO".
+- Valores reutilizados vía `st.session_state["_factib_kpis_proy"]` (mismo
+  cálculo, sin divergencia). La pestaña Factibilidad queda intacta.
+- Grid de Indicadores cambiado de 3 → **4 columnas**.
+
+### Nueva pestaña "🏞️ Forma de pago Lote" (Reporte Proyecto)
+- Gráfica estática del **Lote Bruto consolidado** (barras + línea acumulada),
+  réplica del mini-gráfico del tooltip de esa fila. Título incluye el
+  **valor total** del lote.
+- Toggle **Año/Mes** (default Año) y toggles de etiqueta independientes
+  (Canje / Pago / Acumulado).
+- Campo **% Canje (m²)** por cada periodo con flujo de lote (0–100%). Al
+  ingresar un %, la barra se parte en **Canje (m²)** (azul) y **Pago ($)**
+  (vinotinto), sumando el total original. El acumulado refleja siempre el
+  total. Estado por sesión, independiente entre vista Mes y Año.
+- La línea "Lote Bruto" se detecta por nombre entre los subíndices `2.x`.
+
+### Operación: arranque de la app
+- La app dejaba de responder tras cada edición porque se lanzaba como tarea en
+  segundo plano del tooling (se mata al cerrar el turno). Ahora se lanza como
+  **proceso independiente** (`Start-Process`, ventana oculta, logs en
+  `.cache/streamlit.*.log`). Para uso manual, `run_app.bat` hace lo mismo.

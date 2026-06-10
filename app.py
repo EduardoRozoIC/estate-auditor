@@ -2052,6 +2052,7 @@ elif modulo == "📈 Reporte Inversionista":
                             text=[fmt_cop_short(v) for v in _acum_p] if lbl_inv_acumulado else None,
                             textposition="top center",
                             textfont=dict(size=11, color=_color_p),
+                            cliponaxis=False,
                             yaxis="y2",
                         ))
                 else:
@@ -2121,6 +2122,7 @@ elif modulo == "📈 Reporte Inversionista":
                         text=[fmt_cop_short(v) for v in acum_a_graficar] if lbl_inv_acumulado else None,
                         textposition="top center",
                         textfont=dict(size=14, color=_line_lbl_colors),
+                        cliponaxis=False,
                         yaxis="y2",
                     ))
 
@@ -4041,9 +4043,9 @@ elif modulo == "📊 Reporte Proyecto":
                 # ═══════════════════════════════════
                 # TAB LAYOUT
                 # ═══════════════════════════════════
-                tab_pyg, tab_kpi, tab_crono, tab_flujo, tab_acum = st.tabs([
-                    "💰 Factibilidad (P&G)", "📏 Indicadores", "📅 Cronograma",
-                    "📋 Flujo de Caja", "📈 Flujo Acumulado"
+                tab_pyg, tab_kpi, tab_lote, tab_crono, tab_flujo, tab_acum = st.tabs([
+                    "💰 Factibilidad (P&G)", "📏 Indicadores", "🏞️ Forma de pago Lote",
+                    "📅 Cronograma", "📋 Flujo de Caja", "📈 Flujo Acumulado"
                 ])
 
                 # ───────────────────────────────────
@@ -4960,6 +4962,22 @@ elif modulo == "📊 Reporte Proyecto":
                       </div>
                     """
 
+                    # Lista reutilizable de los KPIs de Factibilidad (mismos valores
+                    # ya calculados) para mostrarlos también en la pestaña Indicadores
+                    # sin recalcular → consistencia garantizada. Formato (label, valor, fuente).
+                    st.session_state["_factib_kpis_proy"] = [
+                        ("Ingresos Totales",        fmt_cop_fc(ventas_total),     "1.0 Ventas"),
+                        ("Total Costos",            fmt_cop_fc(costos_total_pyg), "9.0 − 6.0 (excluye Financieros)"),
+                        ("Utilidad",                fmt_cop_fc(utilidad_pyg),     f"{utilidad_pct:.1f}% s/ ventas"),
+                        ("Margen Operativo",        f"{margen_pyg:.1f}%",         "FCO / Ingresos"),
+                        ("TIR Operativa",           tir_fco_str,                  "Anual efectiva · sin financieros"),
+                        ("TIR Inversionista",       tir_inv_str,                  "XIRR aportes/reintegros IC"),
+                        ("Equity Requerido IC",     fmt_cop_fc(equity_ic_fc),     "Σ 13.2 Aportes IC"),
+                        ("Equity Requerido Socio",  fmt_cop_fc(equity_socio_fc),  "Σ 14.2 Aportes Socio"),
+                        ("Honorarios IC",           fmt_cop_fc(hon_ic_fc),        "5.22 + 5.42 + 5.62 + 5.82"),
+                        ("Honorarios Socio",        fmt_cop_fc(hon_socio_fc),     "5.24 + 5.44 + 5.64 + 5.84"),
+                    ]
+
                     if is_compact_pyg:
                         pyg_l, pyg_r = st.columns([6, 6])
                         with pyg_l:
@@ -5508,24 +5526,36 @@ elif modulo == "📊 Reporte Proyecto":
                             inds.append(("Indicadores Avanzados", "Error", str(_ex_ind)))
                         return inds
 
-                    def _render_indicadores(inds):
-                        cols_per_row = 3
+                    def _render_indicadores(inds, cols_per_row=4, fuente_prefix=True):
                         for i in range(0, len(inds), cols_per_row):
                             cols = st.columns(cols_per_row)
                             for j, col in enumerate(cols):
                                 idx = i + j
                                 if idx < len(inds):
                                     nombre_ind, valor_ind, fuente_ind = inds[idx]
+                                    _sub = f"Fuente: {fuente_ind}" if fuente_prefix else fuente_ind
                                     with col:
                                         st.markdown(f"""
                                         <div class="kpi-box">
                                           <div class="kpi-label">{nombre_ind}</div>
                                           <div class="kpi-value">{valor_ind}</div>
-                                          <div class="kpi-sub">Fuente: {fuente_ind}</div>
+                                          <div class="kpi-sub">{_sub}</div>
                                         </div>""", unsafe_allow_html=True)
 
                     # ── Consolidado ──
                     st.markdown("#### 🌐 Consolidado")
+
+                    # Grupo 1 — KPIs de la pestaña Factibilidad (mismos valores, sin
+                    # recalcular). Se omite "Margen Operativo" porque equivale a
+                    # "Margen FCO" (10.0/1.0), que ya está en los operativos → no duplica.
+                    _factib_proy = [t for t in st.session_state.get("_factib_kpis_proy", [])
+                                    if t[0] != "Margen Operativo"]
+                    if _factib_proy:
+                        st.markdown("##### 💰 Factibilidad (P&G)")
+                        _render_indicadores(_factib_proy, fuente_prefix=False)
+
+                    # Grupo 2 — indicadores operativos y comerciales.
+                    st.markdown("##### 📏 Operativos y Comerciales")
                     _render_indicadores(_compute_indicadores(snapshots))
 
                     # ── Por proyecto (expandibles) ──
@@ -5555,6 +5585,160 @@ elif modulo == "📊 Reporte Proyecto":
                                          use_container_width=True, hide_index=True)
                         else:
                             st.info("No se detectaron líneas de soporte en los snapshots.")
+
+                # ───────────────────────────────────
+                # TAB: FORMA DE PAGO LOTE
+                # ───────────────────────────────────
+                with tab_lote:
+                    st.subheader(f"🏞️ Forma de Pago del Lote — {tit_proyectos}")
+                    st.caption(
+                        "Distribución del flujo de **Lote Bruto** (consolidado de los "
+                        "proyectos filtrados). Ingresa el % de cada periodo pagado con "
+                        "**Canje (m²)**; el resto se considera **Pago ($)**."
+                    )
+
+                    # 1) Localizar el índice de la línea "Lote Bruto" (sub de "2")
+                    def _find_lote_bruto_idx():
+                        cand = None
+                        for s in snapshots:
+                            for l in s.lineas:
+                                if (l.participacion == Participacion.TOTAL
+                                        and l.indice.split(".")[0] == "2"):
+                                    nm = (l.nombre or "").strip().lower()
+                                    if "lote bruto" in nm:
+                                        return l.indice, (l.nombre or "Lote Bruto")
+                                    if "lote" in nm and cand is None:
+                                        cand = (l.indice, l.nombre or "Lote")
+                        return cand if cand else ("2.0", "Lote")
+
+                    lote_idx, lote_nombre = _find_lote_bruto_idx()
+
+                    # 2) Serie mensual consolidada (alineada a fechas_union). El lote
+                    #    se muestra en positivo (valor a pagar).
+                    serie_mes_lote = [abs(v) for v in _get_valores_lista(lote_idx)]
+
+                    if not fechas_union or sum(serie_mes_lote) == 0:
+                        st.info(
+                            f"No se detectó flujo de lote (línea {lote_idx} · "
+                            f"{lote_nombre}) en los proyectos filtrados."
+                        )
+                    else:
+                        # ── Controles ──
+                        lc1, lc2 = st.columns([1.2, 2])
+                        with lc1:
+                            lote_gran = st.radio(
+                                "Ver por:", ["Año", "Mes"], horizontal=True,
+                                index=0, key="lote_granularidad",
+                            )
+                        with lc2:
+                            _lbl_exp = getattr(st, "popover", None)
+                            _ctx = st.popover("🏷️ Etiquetas") if _lbl_exp else st.expander("🏷️ Etiquetas")
+                            with _ctx:
+                                lote_lbl_canje = st.checkbox("Canje (m²)", value=False, key="lote_lbl_canje")
+                                lote_lbl_pago  = st.checkbox("Pago ($)",   value=False, key="lote_lbl_pago")
+                                lote_lbl_acum  = st.checkbox("Acumulado",  value=False, key="lote_lbl_acum")
+
+                        # ── Agregación según granularidad ──
+                        _MESES_AB = {1:"ene",2:"feb",3:"mar",4:"abr",5:"may",6:"jun",
+                                     7:"jul",8:"ago",9:"sep",10:"oct",11:"nov",12:"dic"}
+                        if lote_gran == "Año":
+                            _buckets = {}
+                            for f, v in zip(fechas_union, serie_mes_lote):
+                                y = str(f)[:4]
+                                _buckets[y] = _buckets.get(y, 0.0) + v
+                            per_labels = sorted(_buckets)
+                            per_vals   = [_buckets[p] for p in per_labels]
+                        else:
+                            per_labels, per_vals = [], []
+                            for f, v in zip(fechas_union, serie_mes_lote):
+                                d = date.fromisoformat(str(f)[:10])
+                                per_labels.append(f"{_MESES_AB[d.month]}-{d.year}")
+                                per_vals.append(v)
+
+                        # ── % Canje por periodo (estado en session_state) ──
+                        def _canje_key(lbl):
+                            return f"lote_canje::{lote_gran}::{lbl}"
+
+                        activos = [i for i, v in enumerate(per_vals) if v > 0]
+                        for i in activos:
+                            k = _canje_key(per_labels[i])
+                            if k not in st.session_state:
+                                st.session_state[k] = 0.0
+
+                        # Leer % ANTES de instanciar widgets (para que la gráfica de
+                        # arriba refleje el último valor en cada rerun).
+                        pct_canje = [
+                            (float(st.session_state.get(_canje_key(per_labels[i]), 0.0)) / 100.0
+                             if i in activos else 0.0)
+                            for i in range(len(per_vals))
+                        ]
+                        canje_vals = [per_vals[i] * pct_canje[i] for i in range(len(per_vals))]
+                        pago_vals  = [per_vals[i] - canje_vals[i] for i in range(len(per_vals))]
+
+                        # Acumulado del TOTAL (no se parte)
+                        acum_lote, _s = [], 0.0
+                        for v in per_vals:
+                            _s += v
+                            acum_lote.append(_s)
+
+                        # ── Gráfica (barras apiladas Pago+Canje + línea acumulada) ──
+                        fig_lote = go.Figure()
+                        fig_lote.add_trace(go.Bar(
+                            x=per_labels, y=pago_vals, name="Pago ($)",
+                            marker_color="#681E1E", opacity=0.92,
+                            text=[fmt_cop_fc(v) if (lote_lbl_pago and v > 0) else "" for v in pago_vals],
+                            textposition="inside", insidetextfont=dict(color="#FFFFFF", size=12),
+                        ))
+                        fig_lote.add_trace(go.Bar(
+                            x=per_labels, y=canje_vals, name="Canje (m²)",
+                            marker_color="#2E86C1", opacity=0.92,
+                            text=[fmt_cop_fc(v) if (lote_lbl_canje and v > 0) else "" for v in canje_vals],
+                            textposition="inside", insidetextfont=dict(color="#FFFFFF", size=12),
+                        ))
+                        fig_lote.add_trace(go.Scatter(
+                            x=per_labels, y=acum_lote, name="Acumulado",
+                            mode="lines+markers+text" if lote_lbl_acum else "lines+markers",
+                            line=dict(color="#1F6F40", width=3), marker=dict(size=6),
+                            text=[fmt_cop_fc(v) for v in acum_lote] if lote_lbl_acum else None,
+                            textposition="top center", textfont=dict(size=12, color="#1F6F40"),
+                            cliponaxis=False, yaxis="y2",
+                        ))
+                        _acum_max = max(acum_lote + [1.0])
+                        fig_lote.update_layout(
+                            barmode="stack",
+                            height=480,
+                            title=dict(text=f"Forma de Pago — {lote_nombre} ({lote_idx})  ·  Total: {fmt_cop_fc(sum(per_vals))}",
+                                       font=dict(size=15, color="#681E1E")),
+                            xaxis=dict(title="Periodo", tickangle=-45 if lote_gran == "Mes" else 0),
+                            yaxis=dict(title="Lote · COP", rangemode="tozero"),
+                            yaxis2=dict(title=dict(text="Acumulado · COP", font=dict(color="#1F6F40")),
+                                        overlaying="y", side="right", showgrid=False,
+                                        rangemode="tozero", range=[0, _acum_max * 1.15],
+                                        tickfont=dict(color="#1F6F40")),
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            plot_bgcolor="white", paper_bgcolor="white",
+                            font=dict(family="Inter, sans-serif"),
+                            margin=dict(l=60, r=70, t=80, b=80),
+                        )
+                        st.plotly_chart(fig_lote, use_container_width=True)
+
+                        # ── Inputs de % Canje (debajo de la gráfica) ──
+                        st.markdown("##### % Canje (m²) por periodo")
+                        st.caption("Solo se muestran los periodos con flujo de lote. Rango 0–100%.")
+                        if activos:
+                            _per_row = 6
+                            for _start in range(0, len(activos), _per_row):
+                                _chunk = activos[_start:_start + _per_row]
+                                _cols = st.columns(_per_row)
+                                for _ci, _pi in enumerate(_chunk):
+                                    with _cols[_ci]:
+                                        st.number_input(
+                                            f"{per_labels[_pi]}  ({fmt_cop_fc(per_vals[_pi])})",
+                                            min_value=0.0, max_value=100.0, step=5.0,
+                                            format="%.1f", key=_canje_key(per_labels[_pi]),
+                                        )
+                        else:
+                            st.info("No hay periodos con flujo de lote para asignar canje.")
 
                 # ───────────────────────────────────
                 # TAB 4: CRONOGRAMA (GANTT)
