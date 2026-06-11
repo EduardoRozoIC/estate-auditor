@@ -5827,98 +5827,99 @@ elif modulo == "📊 Reporte Proyecto":
                             return None, None
                         return fechas_activas[0], fechas_activas[-1]
 
+                    # Paleta del formato de referencia: Ventas (mauve) · Obra
+                    # (vinotinto IC) · Entregas (verde).
                     hito_defs = [
-                        ("Ventas",       "17.1", "#3498db"),
-                        ("Construcción", "3.22", "#e67e22"),
-                        ("Entregas",     "18.1", "#27ae60"),
+                        ("Ventas",   "17.1", "#B08A8A"),
+                        ("Obra",     "3.22", "#7B1F1F"),
+                        ("Entregas", "18.1", "#1F7A44"),
                     ]
 
-                    # Una fila por (proyecto, hito)
+                    # Una fila por PROYECTO (etapa); cada fase es un segmento ubicado
+                    # en su rango real de fechas sobre la misma fila.
                     hitos = []
+                    proy_rangos = {}  # proyecto -> {fase: (ini, fin)}
                     for s in snapshots:
                         for nombre_h, idx_h, color_h in hito_defs:
                             f_ini, f_fin = _detectar_rango_snap(s, idx_h)
                             if f_ini:
-                                row_label = (f"{nombre_h}" if len(snapshots) == 1
-                                             else f"{s.proyecto} — {nombre_h}")
-                                hitos.append((row_label, f_ini, f_fin, color_h, nombre_h, str(s.proyecto)))
+                                hitos.append((str(s.proyecto), f_ini, f_fin, color_h, nombre_h, str(s.proyecto)))
+                                proy_rangos.setdefault(str(s.proyecto), {})[nombre_h] = (f_ini, f_fin)
 
                     if not hitos:
                         st.info("No se detectaron líneas de cronograma (17.1, 3.22, 18.1) en los snapshots.")
                     else:
-                        fig_gantt = go.Figure()
-                        # Rango global para encuadrar el eje X (un margen de medio mes
-                        # a cada lado para que las barras no toquen el borde).
+                        from datetime import timedelta as _td
                         _dmin = min(date.fromisoformat(h[1]) for h in hitos)
                         _dmax = max(date.fromisoformat(h[2]) for h in hitos)
-                        from datetime import timedelta as _td
-                        _rng_ini = _dmin.replace(day=1) - _td(days=15)
-                        # Primer día del mes siguiente al fin del último hito + margen
-                        if _dmax.month == 12:
-                            _rng_fin = date(_dmax.year + 1, 1, 1) + _td(days=15)
-                        else:
-                            _rng_fin = date(_dmax.year, _dmax.month + 1, 1) + _td(days=15)
+                        # Encuadre del eje X a años completos, con un pequeño margen.
+                        _rng_ini = date(_dmin.year, 1, 1) - _td(days=20)
+                        _rng_fin = date(_dmax.year + 1, 1, 1) + _td(days=20)
 
-                        for row_label, f_ini, f_fin, color, nombre_hito, _proj in hitos:
-                            d_ini = date.fromisoformat(f_ini)
-                            d_fin = date.fromisoformat(f_fin)
-                            meses = max(1, (d_fin.year - d_ini.year) * 12 + d_fin.month - d_ini.month)
-                            dias = max(30, (d_fin - d_ini).days)
-                            duracion_ms = dias * 24 * 60 * 60 * 1000
+                        # Orden de etapas por fecha de inicio (la más temprana arriba).
+                        def _proy_start(p):
+                            return min(v[0] for v in proy_rangos[p].values())
+                        proy_orden = sorted(proy_rangos.keys(), key=_proy_start)
 
-                            fig_gantt.add_trace(go.Bar(
-                                y=[row_label],
-                                x=[duracion_ms],
-                                base=[f_ini],
-                                orientation="h",
-                                name=nombre_hito,
-                                marker_color=color,
-                                opacity=0.85,
-                                text=f"{f_ini}  →  {f_fin}  ({meses} meses)",
-                                textposition="inside",
-                                insidetextanchor="middle",
-                                textfont=dict(color="white", size=12),
-                            ))
+                        fig_gantt = go.Figure()
+                        _seen_lg = set()
+                        for p in proy_orden:
+                            for nombre_h, idx_h, color_h in hito_defs:
+                                rng = proy_rangos[p].get(nombre_h)
+                                if not rng:
+                                    continue
+                                f_ini, f_fin = rng
+                                d_ini = date.fromisoformat(f_ini)
+                                d_fin = date.fromisoformat(f_fin)
+                                dias = max(20, (d_fin - d_ini).days)
+                                _show_lg = nombre_h not in _seen_lg
+                                _seen_lg.add(nombre_h)
+                                fig_gantt.add_trace(go.Bar(
+                                    y=[p],
+                                    x=[dias * 24 * 60 * 60 * 1000],
+                                    base=[f_ini],
+                                    orientation="h",
+                                    name=nombre_h,
+                                    legendgroup=nombre_h,
+                                    showlegend=_show_lg,
+                                    marker_color=color_h,
+                                    marker_line_width=0,
+                                    hovertemplate=f"<b>{p}</b> · {nombre_h}<br>{f_ini} → {f_fin}<extra></extra>",
+                                ))
 
-                        # ── Calcular número total de meses del rango ──
-                        _n_meses_rng = (
-                            (_rng_fin.year - _rng_ini.year) * 12
-                            + (_rng_fin.month - _rng_ini.month)
-                        )
-                        # Si hay muchos meses, mostrar el mes en formato corto
-                        # (rotado) para que entren todos sin solaparse.
-                        _tickformat = "%b %Y" if _n_meses_rng <= 36 else "%b\n%Y"
-                        _tickangle  = -45 if _n_meses_rng > 18 else 0
-
-                        # Altura dinámica: 45 px por fila + 140 de chrome
-                        # (más alto para acomodar etiquetas mensuales rotadas)
+                        # Altura: ~90 px por etapa para un look aireado como la referencia.
                         fig_gantt.update_layout(
-                            height=max(280, 45 * len(hitos) + 140),
+                            height=max(300, 90 * len(proy_orden) + 130),
                             title=dict(
-                                text="Cronograma — Hitos por Proyecto",
-                                font=dict(size=16, color="#681E1E"),
+                                text="Cronograma por etapa",
+                                font=dict(size=20, color="#681E1E"),
+                                x=0.01, xanchor="left",
                             ),
                             xaxis=dict(
                                 type="date",
-                                title="Fecha",
-                                # Forzar tick por cada mes
-                                dtick="M1",
-                                tick0=_rng_ini.isoformat(),
-                                tickformat=_tickformat,
-                                tickangle=_tickangle,
-                                tickfont=dict(size=11),
+                                dtick="M12",
+                                tick0="2000-01-01",
+                                tickformat="%Y",
                                 range=[_rng_ini.isoformat(), _rng_fin.isoformat()],
-                                showgrid=True,
-                                gridcolor="#F0F0F0",
-                                gridwidth=1,
+                                tickfont=dict(size=17, color="#333"),
+                                showgrid=True, gridcolor="#E8E8E8", gridwidth=1,
+                                showline=False, ticks="", zeroline=False,
                             ),
-                            yaxis=dict(autorange="reversed"),
+                            yaxis=dict(
+                                autorange="reversed",
+                                tickfont=dict(size=17, color="#333"),
+                                showgrid=False, showline=False, ticks="",
+                            ),
                             barmode="overlay",
-                            showlegend=False,
+                            bargap=0.45,
+                            legend=dict(
+                                orientation="h", yanchor="bottom", y=1.02,
+                                xanchor="right", x=1, font=dict(size=15),
+                            ),
                             plot_bgcolor="white",
                             paper_bgcolor="white",
                             font=dict(family="Inter, sans-serif"),
-                            margin=dict(l=200, r=30, t=60, b=80),
+                            margin=dict(l=110, r=30, t=70, b=40),
                         )
                         st.plotly_chart(fig_gantt, use_container_width=True)
 
