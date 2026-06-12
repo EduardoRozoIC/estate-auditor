@@ -6117,17 +6117,46 @@ elif modulo == "📊 Reporte Proyecto":
                         st.plotly_chart(fig_gantt, use_container_width=True)
 
                         st.markdown("#### Resumen de Hitos")
-                        df_hitos = pd.DataFrame([
-                            {
-                                "Proyecto": h[5],
-                                "Hito": h[4],
-                                "Inicio": h[1],
-                                "Fin": h[2],
-                                "Duración": f"{max(1, (date.fromisoformat(h[2]).year - date.fromisoformat(h[1]).year)*12 + date.fromisoformat(h[2]).month - date.fromisoformat(h[1]).month)} meses"
-                            }
-                            for h in hitos
-                        ])
-                        st.dataframe(df_hitos, use_container_width=True, hide_index=True)
+                        # Agrupar por proyecto (etapa) preservando orden de aparición.
+                        _grp_h = {}
+                        _ord_h = []
+                        for h in hitos:
+                            _p = h[5]
+                            if _p not in _grp_h:
+                                _grp_h[_p] = []
+                                _ord_h.append(_p)
+                            _di, _df_ = date.fromisoformat(h[1]), date.fromisoformat(h[2])
+                            _dur = max(1, (_df_.year - _di.year) * 12 + _df_.month - _di.month)
+                            _grp_h[_p].append((h[4], h[1], h[2], f"{_dur} meses"))
+
+                        _hitos_css = """<style>
+                          .hitos-tbl{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:14px;}
+                          .hitos-tbl thead th{background:#681E1E;color:#fff;font-weight:700;
+                              text-align:left;padding:9px 14px;}
+                          .hitos-tbl td{padding:8px 14px;border-bottom:1px solid #eee;}
+                          .hitos-tbl td.hp{font-weight:700;color:#681E1E;vertical-align:middle;
+                              background:#faf6f6;border-right:1px solid #e2d6d6;}
+                          .hitos-tbl tr.grp-top td{border-top:3px solid #681E1E;}
+                        </style>"""
+
+                        _rows_h = ""
+                        for _p in _ord_h:
+                            _g = _grp_h[_p]
+                            for _ri, (_hi, _in, _fn, _du) in enumerate(_g):
+                                _cls = ' class="grp-top"' if _ri == 0 else ""
+                                _pcell = (f'<td class="hp" rowspan="{len(_g)}">{_p}</td>'
+                                          if _ri == 0 else "")
+                                _rows_h += (f'<tr{_cls}>{_pcell}<td>{_hi}</td>'
+                                            f'<td>{_in}</td><td>{_fn}</td><td>{_du}</td></tr>')
+
+                        st.markdown(
+                            _hitos_css
+                            + '<table class="hitos-tbl"><thead><tr>'
+                            + '<th>Proyecto</th><th>Hito</th><th>Inicio</th>'
+                            + '<th>Fin</th><th>Duración</th></tr></thead>'
+                            + f'<tbody>{_rows_h}</tbody></table>',
+                            unsafe_allow_html=True,
+                        )
 
             except Exception as e:
                 import traceback
