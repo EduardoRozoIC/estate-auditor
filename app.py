@@ -726,6 +726,39 @@ def _build_snapshot(proyecto, fecha_obj, version):
         memo[key] = snap
     return snap
 
+# ── Valores MANUALES de indicadores (no provienen del flujo de caja) ──
+# Se guardan por "firma" de selección de proyectos para que cada conjunto de
+# proyectos recuerde sus propios valores. Persistencia best-effort en disco.
+_MANUAL_IND_FILE = _CACHE_DIR / "manual_indicators.pkl"
+
+def _load_manual_ind():
+    import pickle
+    if "_manual_ind" in st.session_state:
+        return
+    try:
+        with open(_MANUAL_IND_FILE, "rb") as f:
+            st.session_state["_manual_ind"] = pickle.load(f)
+    except Exception:
+        st.session_state["_manual_ind"] = {}
+
+def _persist_manual_ind():
+    import pickle
+    try:
+        _CACHE_DIR.mkdir(exist_ok=True)
+        with open(_MANUAL_IND_FILE, "wb") as f:
+            pickle.dump(st.session_state.get("_manual_ind", {}), f)
+    except Exception:
+        pass
+
+def _get_manual(sig, key):
+    return st.session_state.get("_manual_ind", {}).get(sig, {}).get(key, "")
+
+def _set_manual(sig, key, value):
+    store = st.session_state.setdefault("_manual_ind", {})
+    store.setdefault(sig, {})[key] = value
+
+_load_manual_ind()
+
 # Auto-restauración al arrancar: si no hay base en sesión pero existe una
 # guardada en disco, se restaura para que recargar la página no obligue a
 # reprocesar los Excel.
@@ -4984,30 +5017,135 @@ elif modulo == "📊 Reporte Proyecto":
                         ("Honorarios Socio",        fmt_cop_fc(hon_socio_fc),                    "5.24 + 5.44 + 5.64 + 5.84"),
                     ]
 
+                    # ════════════════════════════════════════════════════
+                    # DASHBOARD DE INDICADORES POR CATEGORÍA (lado derecho)
+                    # ════════════════════════════════════════════════════
+                    # Tablas compactas por categoría para armar presentaciones con
+                    # pantallazos. Los indicadores que NO provienen del flujo se
+                    # ingresan a mano (celda editable) y se guardan por selección.
+                    _sig_proy = "|".join(sorted(str(s.proyecto) for s in snapshots))
+
+                    # Indicadores avanzados (para reutilizar valores ya formateados)
+                    _adv_p = {}
+                    try:
+                        for _t in compute_indicadores_avanzados(snapshots, builder):
+                            _adv_p[_t[0]] = _t[1]
+                    except Exception:
+                        _adv_p = {}
+                    def _advv(n):
+                        return _adv_p.get(n, "N/A")
+
+                    _tot_un   = sum(_get_total_snap(s, "17.1") for s in snapshots)
+                    _tot_m2v  = sum(_get_total_snap(s, "17.3") for s in snapshots)
+                    _tot_lote = sum(_get_total_snap(s, "2.0") for s in snapshots)
+
+                    def _meses_activos_idx(idx):
+                        act = set()
+                        for s in snapshots:
+                            l = builder.get_linea_exacta(s, idx, Participacion.TOTAL)
+                            if l:
+                                for f, v in l.valores.items():
+                                    if v != 0.0:
+                                        act.add(str(f)[:10])
+                        return len(act)
+                    _mes_vtas = _meses_activos_idx("17.1")
+                    _mes_obra = _meses_activos_idx("3.22")
+
+                    _f_unid  = f"{_tot_un:,.0f}" if _tot_un else "N/A"
+                    _f_apu   = f"{_tot_m2v/_tot_un:,.1f} m²" if (_tot_un and _tot_m2v) else "N/A"
+                    _f_vvu   = f"${ventas_total/_tot_un:,.0f}" if _tot_un else "N/A"
+                    _f_vvm   = f"${ventas_total/_tot_m2v:,.0f}" if _tot_m2v else "N/A"
+                    _f_ritmo = f"{_tot_un/_mes_vtas:,.1f} Un/mes" if (_tot_un and _mes_vtas) else "N/A"
+                    _f_durc  = f"{_mes_obra} meses" if _mes_obra else "N/A"
+                    _f_incl  = f"{abs(_tot_lote)/ventas_total*100:.1f}%" if ventas_total else "N/A"
+
+                    # Eficiencia = Área vendible / Área construida (de los manuales)
+                    def _num_manual(k):
+                        try:
+                            return float(str(_get_manual(_sig_proy, k))
+                                         .replace(",", "").replace("$", "")
+                                         .replace("m²", "").replace("%", "").strip())
+                        except Exception:
+                            return None
+                    _av, _ac = _num_manual("area_vendible"), _num_manual("area_construida")
+                    _f_efic = f"{_av/_ac*100:.1f}%" if (_av and _ac) else ""
+
+                    # (label, valor, manual_id | None)
+                    _cat_arq = [
+                        ("Área Lote (m²)",          _get_manual(_sig_proy, "area_lote"),       "area_lote"),
+                        ("Área Vendible (m²)",      _get_manual(_sig_proy, "area_vendible"),   "area_vendible"),
+                        ("Área Construida (m²)",    _get_manual(_sig_proy, "area_construida"), "area_construida"),
+                        ("Eficiencia (%)",          _f_efic,                                   None),
+                        ("Unidades Vendidas",       _f_unid,                                   None),
+                        ("Área Prom. / Unidad",     _f_apu,                                    None),
+                    ]
+                    _cat_vtas = [
+                        ("Vr. Prom. Venta / Unidad",   _f_vvu,                            None),
+                        ("Vr. Prom. Venta / m² vend.", _f_vvm,                            None),
+                        ("Vr. m² Inicial → Final",     _advv("Vr. m² Inicial → Final"),   None),
+                        ("Ritmo de Ventas",            _f_ritmo,                          None),
+                        ("Punto Equilibrio Comercial", _advv("Punto de Equilibrio Comercial"), None),
+                        ("Duración Comercial Total",   _advv("Duración Comercial Total"), None),
+                    ]
+                    _cat_costos = [
+                        ("Vr. m² Lote ($/m²)",            _get_manual(_sig_proy, "vr_m2_lote"),     "vr_m2_lote"),
+                        ("Valor Lote / m² Lote ($/m²)",   _get_manual(_sig_proy, "valor_lote_m2"),  "valor_lote_m2"),
+                        ("Incidencia Lote",               _f_incl,                                  None),
+                        ("Costo Directo / m² s/imp ($/m²)", _get_manual(_sig_proy, "cd_m2_sin"),    "cd_m2_sin"),
+                        ("Costo Directo / m² c/imp ($/m²)", _get_manual(_sig_proy, "cd_m2_con"),    "cd_m2_con"),
+                        ("Duración Construcción",         _f_durc,                                  None),
+                    ]
+                    _cat_fin = [
+                        ("TIR Operativa",          tir_fco_str,                  None),
+                        ("TIR Inversionista",      tir_inv_str,                  None),
+                        ("Equity Requerido IC",    fmt_cop_fc(equity_ic_fc),     None),
+                        ("Equity Requerido Socio", fmt_cop_fc(equity_socio_fc),  None),
+                        ("Honorarios IC",          fmt_cop_fc(hon_ic_fc),        None),
+                        ("Honorarios Socio",       fmt_cop_fc(hon_socio_fc),     None),
+                    ]
+
+                    def _tabla_categoria(titulo, filas):
+                        st.markdown(f"**{titulo}**")
+                        _df = pd.DataFrame([{"Indicador": l, "Valor": (v if v is not None else "")}
+                                            for l, v, _m in filas])
+                        _ed = st.data_editor(
+                            _df, hide_index=True, use_container_width=True,
+                            disabled=["Indicador"], num_rows="fixed",
+                            column_config={
+                                "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
+                                "Valor": st.column_config.TextColumn("Valor", width="small"),
+                            },
+                            key=f"cated::{titulo}::{_sig_proy}",
+                        )
+                        _dirty = False
+                        for _i, (_l, _v, _mid) in enumerate(filas):
+                            if _mid is not None:
+                                _raw = _ed.iloc[_i]["Valor"]
+                                _new = "" if _raw is None else str(_raw)
+                                if _new != str(_get_manual(_sig_proy, _mid)):
+                                    _set_manual(_sig_proy, _mid, _new)
+                                    _dirty = True
+                        if _dirty:
+                            _persist_manual_ind()
+
+                    def _render_dashboard_categorias():
+                        st.caption("Las celdas en blanco (áreas, $/m² de lote y costo directo) "
+                                   "son de ingreso manual: haz clic y escribe el valor.")
+                        _tabla_categoria("🏛️ Arquitectura (áreas y unidades)", _cat_arq)
+                        _tabla_categoria("🏷️ Ventas", _cat_vtas)
+                        _tabla_categoria("💵 Costos (lote y costo directo)", _cat_costos)
+                        _tabla_categoria("📊 Financiero / Estructura Equity", _cat_fin)
+
                     if is_compact_pyg:
                         pyg_l, pyg_r = st.columns([6, 6])
                         with pyg_l:
                             st.markdown(table_html, unsafe_allow_html=True)
                         with pyg_r:
-                            st.markdown(
-                                f'<div class="pyg-kpi-stack">{kpi_cards_html}</div>',
-                                unsafe_allow_html=True,
-                            )
+                            _render_dashboard_categorias()
                     else:
                         st.markdown(table_html, unsafe_allow_html=True)
-                        # Grid 3x2 para 6 KPIs cuando hay muchas columnas en la P&G.
-                        st.markdown(
-                            f"""
-                            <div style="
-                                display: grid;
-                                grid-template-columns: repeat(3, 1fr);
-                                gap: 0.9rem;
-                                margin-top: 0.6rem;">
-                              {kpi_cards_html}
-                            </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
+                        st.markdown("")
+                        _render_dashboard_categorias()
 
                     # ════════════════════════════════════════════
                     # GRÁFICO FLUJO DE CAJA OPERATIVO DEL PROYECTO
