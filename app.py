@@ -5887,6 +5887,21 @@ elif modulo == "📊 Reporte Proyecto":
                                     hovertemplate=f"<b>{p}</b> · {nombre_h}<br>{f_ini} → {f_fin}<extra></extra>",
                                 ))
 
+                        # ── Ticks del eje X: año en enero + nº de mes (4/7/10) por
+                        #    trimestre. Trimestral evita que los textos se superpongan
+                        #    aunque el rango abarque muchos años. (Verificado en imagen.)
+                        def _meses_entre(a, b):
+                            y, m, out = a.year, a.month, []
+                            while (y < b.year) or (y == b.year and m <= b.month):
+                                out.append(date(y, m, 1))
+                                m += 1
+                                if m > 12:
+                                    m = 1; y += 1
+                            return out
+                        _ticks_q = [x for x in _meses_entre(_rng_ini, _rng_fin) if x.month in (1, 4, 7, 10)]
+                        _tickvals = [x.isoformat() for x in _ticks_q]
+                        _ticktext = [(str(x.year) if x.month == 1 else str(x.month)) for x in _ticks_q]
+
                         # Altura: ~90 px por etapa para un look aireado como la referencia.
                         fig_gantt.update_layout(
                             height=max(300, 90 * len(proy_orden) + 130),
@@ -5897,13 +5912,12 @@ elif modulo == "📊 Reporte Proyecto":
                             ),
                             xaxis=dict(
                                 type="date",
-                                dtick="M12",
-                                tick0="2000-01-01",
-                                tickformat="%Y",
+                                tickmode="array",
+                                tickvals=_tickvals,
+                                ticktext=_ticktext,
                                 range=[_rng_ini.isoformat(), _rng_fin.isoformat()],
-                                tickfont=dict(size=17, color="#333"),
-                                showgrid=True, gridcolor="#E8E8E8", gridwidth=1,
-                                showline=False, ticks="", zeroline=False,
+                                tickfont=dict(size=14, color="#333"),
+                                showgrid=False, showline=False, ticks="", zeroline=False,
                             ),
                             yaxis=dict(
                                 autorange="reversed",
@@ -5921,6 +5935,10 @@ elif modulo == "📊 Reporte Proyecto":
                             font=dict(family="Inter, sans-serif"),
                             margin=dict(l=110, r=30, t=70, b=40),
                         )
+                        # Grilla vertical SOLO por año (look limpio de la referencia).
+                        for _yr in range(_rng_ini.year, _rng_fin.year + 1):
+                            fig_gantt.add_vline(x=f"{_yr}-01-01", line_color="#E2E2E2",
+                                                line_width=1, layer="below")
                         st.plotly_chart(fig_gantt, use_container_width=True)
 
                         st.markdown("#### Resumen de Hitos")
