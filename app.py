@@ -5132,15 +5132,14 @@ elif modulo == "📊 Reporte Proyecto":
                     _cat_css = """<style>
                       .cat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:2px;}
                       .cat-card{border:1px solid #e6dede;border-radius:8px;overflow:hidden;background:#fff;}
-                      .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:13.5px;
-                               padding:6px 11px;font-family:'Inter',sans-serif;}
+                      .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:18px;
+                               padding:7px 12px;font-family:'Inter',sans-serif;}
                       .cat-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-family:'Inter',sans-serif;}
-                      .cat-tbl td{padding:6px 10px;border-bottom:1px solid #f1ebeb;font-size:13.5px;
-                                  line-height:1.25;overflow-wrap:anywhere;}
+                      .cat-tbl td{padding:7px 11px;border-bottom:1px solid #f1ebeb;font-size:20px;line-height:1.22;}
                       .cat-tbl tr:last-child td{border-bottom:none;}
-                      .cat-tbl td.cind{color:#333;width:56%;}
-                      .cat-tbl td.cval{text-align:right;font-weight:700;color:#222;width:44%;
-                                       font-variant-numeric:tabular-nums;}
+                      .cat-tbl td.cind{color:#333;width:49%;overflow-wrap:normal;word-break:keep-all;}
+                      .cat-tbl td.cval{text-align:right;font-weight:700;color:#222;width:51%;
+                                       overflow-wrap:break-word;font-variant-numeric:tabular-nums;}
                       .cat-tbl td.cval.cempty{color:#cbbcbc;font-weight:400;}
                     </style>"""
 
