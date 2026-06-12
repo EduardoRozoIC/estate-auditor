@@ -5036,6 +5036,17 @@ elif modulo == "📊 Reporte Proyecto":
                     def _advv(n):
                         return _adv_p.get(n, "N/A")
 
+                    import re as _re_pesos
+                    def _compact_pesos_str(s):
+                        # Convierte montos completos ($11,510,666) a compactos ($11.5M)
+                        if not s:
+                            return s
+                        return _re_pesos.sub(
+                            r"\$[\d,]+",
+                            lambda m: fmt_cop_fc(int(m.group(0)[1:].replace(",", ""))),
+                            s,
+                        )
+
                     _tot_un   = sum(_get_total_snap(s, "17.1") for s in snapshots)
                     _tot_m2v  = sum(_get_total_snap(s, "17.3") for s in snapshots)
                     _tot_lote = sum(_get_total_snap(s, "2.0") for s in snapshots)
@@ -5054,8 +5065,8 @@ elif modulo == "📊 Reporte Proyecto":
 
                     _f_unid  = f"{_tot_un:,.0f}" if _tot_un else "N/A"
                     _f_apu   = f"{_tot_m2v/_tot_un:,.1f} m²" if (_tot_un and _tot_m2v) else "N/A"
-                    _f_vvu   = f"${ventas_total/_tot_un:,.0f}" if _tot_un else "N/A"
-                    _f_vvm   = f"${ventas_total/_tot_m2v:,.0f}" if _tot_m2v else "N/A"
+                    _f_vvu   = fmt_cop_fc(ventas_total/_tot_un) if _tot_un else "N/A"
+                    _f_vvm   = (fmt_cop_fc(ventas_total/_tot_m2v) + "/m²") if _tot_m2v else "N/A"
                     _f_ritmo = f"{_tot_un/_mes_vtas:,.1f} Un/mes" if (_tot_un and _mes_vtas) else "N/A"
                     _f_durc  = f"{_mes_obra} meses" if _mes_obra else "N/A"
                     _f_incl  = f"{abs(_tot_lote)/ventas_total*100:.1f}%" if ventas_total else "N/A"
@@ -5080,7 +5091,7 @@ elif modulo == "📊 Reporte Proyecto":
                     def _fa(mid):   # área
                         v = _mval(mid); return f"{v:,.0f} m²" if v else None
                     def _fmm(mid):  # $/m²
-                        v = _mval(mid); return f"${v:,.0f}/m²" if v else None
+                        v = _mval(mid); return (fmt_cop_fc(v) + "/m²") if v else None
 
                     _av, _ac = _mval("area_vendible"), _mval("area_construida")
                     _f_efic = f"{_av/_ac*100:.1f}%" if (_av and _ac) else None
@@ -5096,7 +5107,7 @@ elif modulo == "📊 Reporte Proyecto":
                     ]
                     _cat_vtas = [
                         ("Vr. Inicial Venta / Unidad", _f_vvu),
-                        ("Vr. m² Inicial → Final",     _advv("Vr. m² Inicial → Final")),
+                        ("Vr. m² Inicial → Final",     _compact_pesos_str(_advv("Vr. m² Inicial → Final"))),
                         ("Vr. Prom. Venta / m² vend.", _f_vvm),
                         ("Ritmo de Ventas",            _f_ritmo),
                         ("Punto Equilibrio Comercial", _advv("Punto de Equilibrio Comercial")),
@@ -5121,14 +5132,15 @@ elif modulo == "📊 Reporte Proyecto":
                     _cat_css = """<style>
                       .cat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:2px;}
                       .cat-card{border:1px solid #e6dede;border-radius:8px;overflow:hidden;background:#fff;}
-                      .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:14px;
+                      .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:13.5px;
                                padding:6px 11px;font-family:'Inter',sans-serif;}
-                      .cat-tbl{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;}
-                      .cat-tbl td{padding:5px 11px;border-bottom:1px solid #f1ebeb;font-size:14px;line-height:1.25;}
+                      .cat-tbl{width:100%;border-collapse:collapse;table-layout:fixed;font-family:'Inter',sans-serif;}
+                      .cat-tbl td{padding:6px 10px;border-bottom:1px solid #f1ebeb;font-size:13.5px;
+                                  line-height:1.25;overflow-wrap:anywhere;}
                       .cat-tbl tr:last-child td{border-bottom:none;}
-                      .cat-tbl td.cind{color:#333;}
-                      .cat-tbl td.cval{text-align:right;font-weight:700;color:#222;
-                                       font-variant-numeric:tabular-nums;white-space:nowrap;}
+                      .cat-tbl td.cind{color:#333;width:56%;}
+                      .cat-tbl td.cval{text-align:right;font-weight:700;color:#222;width:44%;
+                                       font-variant-numeric:tabular-nums;}
                       .cat-tbl td.cval.cempty{color:#cbbcbc;font-weight:400;}
                     </style>"""
 
@@ -5177,7 +5189,7 @@ elif modulo == "📊 Reporte Proyecto":
                     if is_compact_pyg:
                         # El ancho del P&G crece con el nº de columnas (Consolidado +
                         # proyectos) para que no se desborde sobre el dashboard.
-                        pyg_l, pyg_r = st.columns([len(col_defs) + 4, 5])
+                        pyg_l, pyg_r = st.columns([len(col_defs) + 3, 5])
                         with pyg_l:
                             st.markdown(table_html, unsafe_allow_html=True)
                         with pyg_r:
