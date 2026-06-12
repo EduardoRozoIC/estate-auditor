@@ -5020,12 +5020,13 @@ elif modulo == "📊 Reporte Proyecto":
                     # ════════════════════════════════════════════════════
                     # DASHBOARD DE INDICADORES POR CATEGORÍA (lado derecho)
                     # ════════════════════════════════════════════════════
-                    # Tablas compactas por categoría para armar presentaciones con
-                    # pantallazos. Los indicadores que NO provienen del flujo se
-                    # ingresan a mano (celda editable) y se guardan por selección.
+                    # Tablas HTML (fuente grande, controlable por CSS) en cuadrícula
+                    # 2×2 para que todo entre en una pantalla sin scroll. Los
+                    # indicadores que NO provienen del flujo se ingresan a mano en el
+                    # popover "✏️ Editar" y se guardan por selección de proyectos.
                     _sig_proy = "|".join(sorted(str(s.proyecto) for s in snapshots))
 
-                    # Indicadores avanzados (para reutilizar valores ya formateados)
+                    # Indicadores avanzados (reutiliza valores ya formateados)
                     _adv_p = {}
                     try:
                         for _t in compute_indicadores_avanzados(snapshots, builder):
@@ -5059,93 +5060,129 @@ elif modulo == "📊 Reporte Proyecto":
                     _f_durc  = f"{_mes_obra} meses" if _mes_obra else "N/A"
                     _f_incl  = f"{abs(_tot_lote)/ventas_total*100:.1f}%" if ventas_total else "N/A"
 
-                    # Eficiencia = Área vendible / Área construida (de los manuales)
-                    def _num_manual(k):
-                        try:
-                            return float(str(_get_manual(_sig_proy, k))
-                                         .replace(",", "").replace("$", "")
-                                         .replace("m²", "").replace("%", "").strip())
-                        except Exception:
-                            return None
-                    _av, _ac = _num_manual("area_vendible"), _num_manual("area_construida")
-                    _f_efic = f"{_av/_ac*100:.1f}%" if (_av and _ac) else ""
+                    # ── Campos manuales (valores numéricos guardados por selección) ──
+                    _manual_defs = [
+                        ("area_lote",       "Área Lote (m²)",                  100.0),
+                        ("area_vendible",   "Área Vendible (m²)",              100.0),
+                        ("area_construida", "Área Construida (m²)",            100.0),
+                        ("vr_m2_lote",      "Vr. m² Lote ($/m²)",              10000.0),
+                        ("cd_m2_sin",       "Costo Directo / m² s/imp ($/m²)", 10000.0),
+                        ("cd_m2_con",       "Costo Directo / m² c/imp ($/m²)", 10000.0),
+                    ]
+                    for _mid, _lbl, _step in _manual_defs:
+                        _k = f"mi::{_mid}::{_sig_proy}"
+                        if _k not in st.session_state:
+                            _sv = _get_manual(_sig_proy, _mid)
+                            st.session_state[_k] = (_sv if isinstance(_sv, (int, float)) else None)
 
-                    # (label, valor, manual_id | None)
+                    def _mval(mid):
+                        return st.session_state.get(f"mi::{mid}::{_sig_proy}")
+                    def _fa(mid):   # área
+                        v = _mval(mid); return f"{v:,.0f} m²" if v else None
+                    def _fmm(mid):  # $/m²
+                        v = _mval(mid); return f"${v:,.0f}/m²" if v else None
+
+                    _av, _ac = _mval("area_vendible"), _mval("area_construida")
+                    _f_efic = f"{_av/_ac*100:.1f}%" if (_av and _ac) else None
+
+                    # (label, valor) — valor None = celda en blanco (manual sin llenar)
                     _cat_arq = [
-                        ("Área Lote (m²)",          _get_manual(_sig_proy, "area_lote"),       "area_lote"),
-                        ("Área Vendible (m²)",      _get_manual(_sig_proy, "area_vendible"),   "area_vendible"),
-                        ("Área Construida (m²)",    _get_manual(_sig_proy, "area_construida"), "area_construida"),
-                        ("Eficiencia (%)",          _f_efic,                                   None),
-                        ("Unidades Vendidas",       _f_unid,                                   None),
-                        ("Área Prom. / Unidad",     _f_apu,                                    None),
+                        ("Área Lote",           _fa("area_lote")),
+                        ("Área Vendible",       _fa("area_vendible")),
+                        ("Área Construida",     _fa("area_construida")),
+                        ("Eficiencia",          _f_efic),
+                        ("Unidades Vendidas",   _f_unid),
+                        ("Área Prom. / Unidad", _f_apu),
                     ]
                     _cat_vtas = [
-                        ("Vr. Prom. Venta / Unidad",   _f_vvu,                            None),
-                        ("Vr. Prom. Venta / m² vend.", _f_vvm,                            None),
-                        ("Vr. m² Inicial → Final",     _advv("Vr. m² Inicial → Final"),   None),
-                        ("Ritmo de Ventas",            _f_ritmo,                          None),
-                        ("Punto Equilibrio Comercial", _advv("Punto de Equilibrio Comercial"), None),
-                        ("Duración Comercial Total",   _advv("Duración Comercial Total"), None),
+                        ("Vr. Prom. Venta / Unidad",   _f_vvu),
+                        ("Vr. Prom. Venta / m² vend.", _f_vvm),
+                        ("Vr. m² Inicial → Final",     _advv("Vr. m² Inicial → Final")),
+                        ("Ritmo de Ventas",            _f_ritmo),
+                        ("Punto Equilibrio Comercial", _advv("Punto de Equilibrio Comercial")),
+                        ("Duración Comercial Total",   _advv("Duración Comercial Total")),
                     ]
                     _cat_costos = [
-                        ("Vr. m² Lote ($/m²)",            _get_manual(_sig_proy, "vr_m2_lote"),     "vr_m2_lote"),
-                        ("Valor Lote / m² Lote ($/m²)",   _get_manual(_sig_proy, "valor_lote_m2"),  "valor_lote_m2"),
-                        ("Incidencia Lote",               _f_incl,                                  None),
-                        ("Costo Directo / m² s/imp ($/m²)", _get_manual(_sig_proy, "cd_m2_sin"),    "cd_m2_sin"),
-                        ("Costo Directo / m² c/imp ($/m²)", _get_manual(_sig_proy, "cd_m2_con"),    "cd_m2_con"),
-                        ("Duración Construcción",         _f_durc,                                  None),
+                        ("Vr. m² Lote",              _fmm("vr_m2_lote")),
+                        ("Incidencia Lote",          _f_incl),
+                        ("Costo Directo / m² s/imp", _fmm("cd_m2_sin")),
+                        ("Costo Directo / m² c/imp", _fmm("cd_m2_con")),
+                        ("Duración Construcción",    _f_durc),
                     ]
                     _cat_fin = [
-                        ("TIR Operativa",          tir_fco_str,                  None),
-                        ("TIR Inversionista",      tir_inv_str,                  None),
-                        ("Equity Requerido IC",    fmt_cop_fc(equity_ic_fc),     None),
-                        ("Equity Requerido Socio", fmt_cop_fc(equity_socio_fc),  None),
-                        ("Honorarios IC",          fmt_cop_fc(hon_ic_fc),        None),
-                        ("Honorarios Socio",       fmt_cop_fc(hon_socio_fc),     None),
+                        ("TIR Operativa",          tir_fco_str),
+                        ("TIR Inversionista",      tir_inv_str),
+                        ("Equity Requerido IC",    fmt_cop_fc(equity_ic_fc)),
+                        ("Equity Requerido Socio", fmt_cop_fc(equity_socio_fc)),
+                        ("Honorarios IC",          fmt_cop_fc(hon_ic_fc)),
+                        ("Honorarios Socio",       fmt_cop_fc(hon_socio_fc)),
                     ]
 
-                    def _tabla_categoria(titulo, filas):
-                        st.markdown(f"**{titulo}**")
-                        _df = pd.DataFrame([{"Indicador": l, "Valor": (v if v is not None else "")}
-                                            for l, v, _m in filas])
-                        _ed = st.data_editor(
-                            _df, hide_index=True, use_container_width=True,
-                            disabled=["Indicador"], num_rows="fixed",
-                            column_config={
-                                "Indicador": st.column_config.TextColumn("Indicador", width="medium"),
-                                "Valor": st.column_config.TextColumn("Valor", width="small"),
-                            },
-                            key=f"cated::{titulo}::{_sig_proy}",
-                        )
-                        _dirty = False
-                        for _i, (_l, _v, _mid) in enumerate(filas):
-                            if _mid is not None:
-                                _raw = _ed.iloc[_i]["Valor"]
-                                _new = "" if _raw is None else str(_raw)
-                                if _new != str(_get_manual(_sig_proy, _mid)):
-                                    _set_manual(_sig_proy, _mid, _new)
-                                    _dirty = True
-                        if _dirty:
-                            _persist_manual_ind()
+                    _cat_css = """<style>
+                      .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px;}
+                      .cat-card{border:1px solid #e6dede;border-radius:8px;overflow:hidden;background:#fff;}
+                      .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:14px;
+                               padding:6px 11px;font-family:'Inter',sans-serif;}
+                      .cat-tbl{width:100%;border-collapse:collapse;font-family:'Inter',sans-serif;}
+                      .cat-tbl td{padding:5px 11px;border-bottom:1px solid #f1ebeb;font-size:14px;line-height:1.25;}
+                      .cat-tbl tr:last-child td{border-bottom:none;}
+                      .cat-tbl td.cind{color:#333;}
+                      .cat-tbl td.cval{text-align:right;font-weight:700;color:#222;
+                                       font-variant-numeric:tabular-nums;white-space:nowrap;}
+                      .cat-tbl td.cval.cempty{color:#cbbcbc;font-weight:400;}
+                    </style>"""
 
-                    def _render_dashboard_categorias():
-                        st.caption("Las celdas en blanco (áreas, $/m² de lote y costo directo) "
-                                   "son de ingreso manual: haz clic y escribe el valor.")
-                        _tabla_categoria("🏛️ Arquitectura (áreas y unidades)", _cat_arq)
-                        _tabla_categoria("🏷️ Ventas", _cat_vtas)
-                        _tabla_categoria("💵 Costos (lote y costo directo)", _cat_costos)
-                        _tabla_categoria("📊 Financiero / Estructura Equity", _cat_fin)
+                    def _cat_card(titulo, filas):
+                        rs = ""
+                        for _l, _v in filas:
+                            if _v in (None, ""):
+                                rs += f'<tr><td class="cind">{_l}</td><td class="cval cempty">—</td></tr>'
+                            else:
+                                rs += f'<tr><td class="cind">{_l}</td><td class="cval">{_v}</td></tr>'
+                        return (f'<div class="cat-card"><div class="cat-ttl">{titulo}</div>'
+                                f'<table class="cat-tbl"><tbody>{rs}</tbody></table></div>')
+
+                    _grid_html = (
+                        _cat_css + '<div class="cat-grid">'
+                        + _cat_card("🏛️ Arquitectura", _cat_arq)
+                        + _cat_card("🏷️ Ventas", _cat_vtas)
+                        + _cat_card("💵 Costos (lote y costo directo)", _cat_costos)
+                        + _cat_card("📊 Financiero / Equity", _cat_fin)
+                        + '</div>'
+                    )
+
+                    def _popover_editar():
+                        _pop = getattr(st, "popover", None)
+                        _ctx = (st.popover("✏️ Editar valores manuales") if _pop
+                                else st.expander("✏️ Editar valores manuales"))
+                        with _ctx:
+                            _ec = st.columns(2)
+                            for _i, (_mid, _lbl, _step) in enumerate(_manual_defs):
+                                with _ec[_i % 2]:
+                                    st.number_input(_lbl, min_value=0.0, step=_step,
+                                                    format="%.0f", key=f"mi::{_mid}::{_sig_proy}")
+                            _dirty = False
+                            for _mid, _l2, _s2 in _manual_defs:
+                                _cur = st.session_state.get(f"mi::{_mid}::{_sig_proy}")
+                                if _cur != _get_manual(_sig_proy, _mid):
+                                    _set_manual(_sig_proy, _mid, _cur)
+                                    _dirty = True
+                            if _dirty:
+                                _persist_manual_ind()
+
+                    def _render_dashboard():
+                        _popover_editar()
+                        st.markdown(_grid_html, unsafe_allow_html=True)
 
                     if is_compact_pyg:
-                        pyg_l, pyg_r = st.columns([6, 6])
+                        pyg_l, pyg_r = st.columns([5, 7])
                         with pyg_l:
                             st.markdown(table_html, unsafe_allow_html=True)
                         with pyg_r:
-                            _render_dashboard_categorias()
+                            _render_dashboard()
                     else:
                         st.markdown(table_html, unsafe_allow_html=True)
-                        st.markdown("")
-                        _render_dashboard_categorias()
+                        _render_dashboard()
 
                     # ════════════════════════════════════════════
                     # GRÁFICO FLUJO DE CAJA OPERATIVO DEL PROYECTO
