@@ -5119,7 +5119,7 @@ elif modulo == "📊 Reporte Proyecto":
                     ]
 
                     _cat_css = """<style>
-                      .cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px;}
+                      .cat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-top:2px;}
                       .cat-card{border:1px solid #e6dede;border-radius:8px;overflow:hidden;background:#fff;}
                       .cat-ttl{background:#681E1E;color:#fff;font-weight:700;font-size:14px;
                                padding:6px 11px;font-family:'Inter',sans-serif;}
@@ -5175,7 +5175,9 @@ elif modulo == "📊 Reporte Proyecto":
                         st.markdown(_grid_html, unsafe_allow_html=True)
 
                     if is_compact_pyg:
-                        pyg_l, pyg_r = st.columns([5, 7])
+                        # El ancho del P&G crece con el nº de columnas (Consolidado +
+                        # proyectos) para que no se desborde sobre el dashboard.
+                        pyg_l, pyg_r = st.columns([len(col_defs) + 4, 5])
                         with pyg_l:
                             st.markdown(table_html, unsafe_allow_html=True)
                         with pyg_r:
