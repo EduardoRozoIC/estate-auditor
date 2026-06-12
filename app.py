@@ -5066,8 +5066,8 @@ elif modulo == "📊 Reporte Proyecto":
                         ("area_vendible",   "Área Vendible (m²)",              100.0),
                         ("area_construida", "Área Construida (m²)",            100.0),
                         ("vr_m2_lote",      "Vr. m² Lote ($/m²)",              10000.0),
-                        ("cd_m2_sin",       "Costo Directo / m² s/imp ($/m²)", 10000.0),
-                        ("cd_m2_con",       "Costo Directo / m² c/imp ($/m²)", 10000.0),
+                        ("cd_m2_sin",       "Costo Directo / m² s/inc ($/m²)", 10000.0),
+                        ("cd_m2_con",       "Costo Directo / m² c/inc ($/m²)", 10000.0),
                     ]
                     for _mid, _lbl, _step in _manual_defs:
                         _k = f"mi::{_mid}::{_sig_proy}"
@@ -5105,8 +5105,8 @@ elif modulo == "📊 Reporte Proyecto":
                     _cat_costos = [
                         ("Vr. m² Lote",              _fmm("vr_m2_lote")),
                         ("Incidencia Lote",          _f_incl),
-                        ("Costo Directo / m² s/imp", _fmm("cd_m2_sin")),
-                        ("Costo Directo / m² c/imp", _fmm("cd_m2_con")),
+                        ("Costo Directo / m² s/inc", _fmm("cd_m2_sin")),
+                        ("Costo Directo / m² c/inc", _fmm("cd_m2_con")),
                         ("Duración Construcción",    _f_durc),
                     ]
                     _cat_fin = [
