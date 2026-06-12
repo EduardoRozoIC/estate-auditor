@@ -5095,9 +5095,9 @@ elif modulo == "📊 Reporte Proyecto":
                         ("Área Prom. / Unidad", _f_apu),
                     ]
                     _cat_vtas = [
-                        ("Vr. Prom. Venta / Unidad",   _f_vvu),
-                        ("Vr. Prom. Venta / m² vend.", _f_vvm),
+                        ("Vr. Inicial Venta / Unidad", _f_vvu),
                         ("Vr. m² Inicial → Final",     _advv("Vr. m² Inicial → Final")),
+                        ("Vr. Prom. Venta / m² vend.", _f_vvm),
                         ("Ritmo de Ventas",            _f_ritmo),
                         ("Punto Equilibrio Comercial", _advv("Punto de Equilibrio Comercial")),
                         ("Duración Comercial Total",   _advv("Duración Comercial Total")),
