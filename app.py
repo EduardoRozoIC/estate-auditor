@@ -946,6 +946,139 @@ def compute_indicadores_avanzados(snapshots_list, builder_obj):
 
 
 # ─────────────────────────────────────────────
+# HELPERS COMPARTIDOS — P&G DE FACTIBILIDAD
+# ─────────────────────────────────────────────
+# Construcción reutilizable del P&G (misma lógica que la pestaña Factibilidad)
+# para el módulo "Comparación Proyectos". Autocontenido: no modifica la pestaña.
+
+def _pyg_fmt_num(v):
+    sign = "-" if v < 0 else ""
+    av = abs(v)
+    if av >= 1_000_000:
+        s_ = f"${av/1_000_000:,.0f}".replace(",", ".")
+    else:
+        s_ = f"${av:,.0f}".replace(",", ".")
+    return f"{sign}{s_}" if v < 0 else s_
+
+def pyg_estructura(snapshots, builder):
+    """Devuelve (pyg_struct, dev_idx) replicando la estructura del P&G."""
+    from itertools import combinations
+    P = Participacion
+
+    def _tot(snap, indice):
+        l = builder.get_linea_exacta(snap, indice, P.TOTAL)
+        if not l:
+            l = builder.get_linea_exacta(snap, indice, P.IC)
+        return l.total_periodo if l else 0.0
+
+    def _val(indice):
+        return sum(_tot(s, indice) for s in snapshots)
+
+    def _subs(root):
+        found = {}
+        for s in snapshots:
+            for ln in s.lineas:
+                parts = ln.indice.split(".")
+                if len(parts) == 2 and parts[0] == root and parts[1] != "0":
+                    found[ln.indice] = ln.nombre or ln.indice
+        return sorted(found.items(), key=lambda x: [int(p) for p in x[0].split(".") if p.isdigit()])
+
+    def _existe(indice):
+        return any(ln.indice == indice for s in snapshots for ln in s.lineas)
+
+    def _nombre(indice):
+        for s in snapshots:
+            for ln in s.lineas:
+                if ln.indice == indice and ln.nombre:
+                    return ln.nombre
+        return ""
+
+    _OVR = {"costos incurridos": "Relacionados Lote"}
+    def _nm(nm):
+        return _OVR.get((nm or "").strip().lower(), nm)
+
+    def _es_suma_subset(target, vals, tol=0.01):
+        if not vals or abs(target) < 1.0:
+            return False
+        base = max(abs(target), 1.0)
+        for n in range(1, min(len(vals), 6) + 1):
+            for combo in combinations(vals, n):
+                if abs(sum(combo) - target) / base < tol:
+                    return True
+        return False
+
+    struct = [("1.0", "Ventas", "header", 1)]
+    subs_2 = _subs("2")
+    if subs_2:
+        if len(subs_2) >= 2:
+            fv = _val(subs_2[0][0]); ov = [_val(idx) for idx, _ in subs_2[1:]]
+            if _es_suma_subset(fv, ov):
+                subs_2 = subs_2[1:]
+        for idx, nm in subs_2:
+            struct.append((idx, _nm(nm), "item", 1))
+    else:
+        struct.append(("2.0", "Lote", "item", 1))
+    struct.append(("3.0", "Costo Directo", "item", 1))
+    if _existe("7.0"):
+        struct.append(("7.0", "-Iva", "negative", -1))
+    struct.append(("5.0", "Honorarios", "item", 1))
+    struct.append(("4.0", "Indirectos", "italic", 1))
+    for idx, nm in _subs("4"):
+        struct.append((idx, nm, "subitem", 1))
+    struct.append(("__calc:total_costos", "Total Costos", "subtotal", 1))
+    struct.append(("__calc:uo", "Utilidad Operativa", "result", 1))
+    struct.append(("__calc:financieros", "Financieros", "item", 1))
+    dev_idx = None
+    for ti in ("8.0", "5.9", "5.10"):
+        if _existe(ti):
+            struct.append((ti, _nombre(ti) or "Devolución Honorarios", "italic", 1))
+            dev_idx = ti
+            break
+    struct.append(("__calc:utilidad", "Utilidad", "result", 1))
+    struct.append(("__calc:capital_req", "Capital Requerido", "result", 1))
+    return struct, dev_idx
+
+def pyg_filas(struct, dev_idx, snapshots, builder):
+    """Devuelve (col_defs, filas) para una estructura dada y un grupo de snapshots.
+    filas: lista de dicts {key,label,tipo,signo,vals} donde vals[0]=Consolidado."""
+    P = Participacion
+
+    def _tot(snap, indice):
+        l = builder.get_linea_exacta(snap, indice, P.TOTAL)
+        if not l:
+            l = builder.get_linea_exacta(snap, indice, P.IC)
+        return l.total_periodo if l else 0.0
+
+    def _val(indice, snap=None):
+        if snap is not None:
+            return _tot(snap, indice)
+        return sum(_tot(s, indice) for s in snapshots)
+
+    def _val_for(key, snap):
+        if key == "__calc:total_costos":
+            return _val("9.0", snap) - _val("6.0", snap)
+        if key == "__calc:uo":
+            return _val("1.0", snap) - (_val("9.0", snap) - _val("6.0", snap))
+        if key == "__calc:financieros":
+            return abs(_val("6.0", snap))
+        if key == "__calc:utilidad":
+            uo = _val("1.0", snap) - (_val("9.0", snap) - _val("6.0", snap))
+            fin = abs(_val("6.0", snap))
+            dev = _val(dev_idx, snap) if dev_idx else 0.0
+            return uo - fin + dev
+        if key == "__calc:capital_req":
+            return abs(_val("13.2", snap)) + abs(_val("14.2", snap))
+        return _val(key, snap)
+
+    col_defs = [(None, "Consolidado")] + [(s, str(s.proyecto)) for s in snapshots]
+    filas = []
+    for key, label, tipo, signo in struct:
+        vals = [_val_for(key, snap) * signo for snap, _ in col_defs]
+        filas.append({"key": key, "label": label, "tipo": tipo, "signo": signo, "vals": vals})
+    return col_defs, filas
+
+
+# ─────────────────────────────────────────────
 # SIDEBAR NAVEGACIÓN
 # ─────────────────────────────────────────────
 
@@ -965,7 +1098,7 @@ for _qp_key in ("pyg_open_inv_key", "pyg_open_inv_col",
 modulo = st.sidebar.radio(
     "Módulos",
     ["📂 Cargar Base", "🔍 Auditoría", "📈 Reporte Inversionista",
-     "📊 Reporte Proyecto", "💼 Flujo Proyecto (Control)"],
+     "📊 Reporte Proyecto", "🆚 Comparación Proyectos", "💼 Flujo Proyecto (Control)"],
     label_visibility="collapsed",
     key="modulo_main_nav",
 )
@@ -6206,6 +6339,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
         ("🔍 Auditoría", "🔍"),
         ("📈 Reporte Inversionista", "📈"),
         ("📊 Reporte Proyecto", "📊"),
+        ("🆚 Comparación Proyectos", "🆚"),
         ("💼 Flujo Proyecto (Control)", "💼"),
     ]
 
@@ -6943,3 +7077,143 @@ elif modulo == "💼 Flujo Proyecto (Control)":
                 mime="text/csv",
                 use_container_width=True,
             )
+
+
+# ═════════════════════════════════════════════
+# MÓDULO 6 — COMPARACIÓN DE PROYECTOS
+# ═════════════════════════════════════════════
+
+elif modulo == "🆚 Comparación Proyectos":
+    st.title("🆚 Comparación de Proyectos")
+    st.markdown(
+        "Selecciona **dos grupos** de proyectos/etapas y compara sus "
+        "factibilidades (P&G) lado a lado, con la **diferencia** en los valores "
+        "consolidados (Grupo A − Grupo B)."
+    )
+    st.divider()
+
+    if not st.session_state.records:
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
+        st.stop()
+
+    resp = st.session_state.upload_response
+
+    def _fechas_comunes(grupo):
+        sets = [set(resp.fechas_datos.get(p, [])) for p in grupo]
+        return sorted(set.intersection(*sets), reverse=True) if sets else []
+
+    selA, selB = st.columns(2)
+    with selA:
+        st.markdown("#### 🅰️ Grupo A")
+        grpA = st.multiselect("Proyectos A", resp.proyectos,
+                              default=resp.proyectos[:1], key="cmp_A_proy")
+        fa_com = _fechas_comunes(grpA)
+        if grpA and not fa_com:
+            st.warning("⚠️ No hay corte común a los proyectos del Grupo A.")
+        fechaA = st.selectbox("Corte A", fa_com, key="cmp_A_fecha") if fa_com else None
+    with selB:
+        st.markdown("#### 🅱️ Grupo B")
+        _defB = resp.proyectos[1:2] if len(resp.proyectos) > 1 else resp.proyectos[:1]
+        grpB = st.multiselect("Proyectos B", resp.proyectos,
+                              default=_defB, key="cmp_B_proy")
+        fb_com = _fechas_comunes(grpB)
+        if grpB and not fb_com:
+            st.warning("⚠️ No hay corte común a los proyectos del Grupo B.")
+        fechaB = st.selectbox("Corte B", fb_com, key="cmp_B_fecha") if fb_com else None
+
+    _cmp_disabled = not (grpA and fechaA and grpB and fechaB)
+    if st.button("📊 Comparar factibilidades", type="primary", disabled=_cmp_disabled):
+        st.session_state["cmp_run"] = True
+
+    if st.session_state.get("cmp_run") and not _cmp_disabled:
+        try:
+            with st.spinner("Reconstruyendo factibilidades…"):
+                fa_obj, fa_ver = parse_fecha_label(fechaA)
+                fb_obj, fb_ver = parse_fecha_label(fechaB)
+                snapsA = [_build_snapshot(p, fa_obj, fa_ver) for p in grpA]
+                snapsB = [_build_snapshot(p, fb_obj, fb_ver) for p in grpB]
+
+                # Estructura común (unión) para que las filas se alineen.
+                struct, dev = pyg_estructura(snapsA + snapsB, builder)
+                col_defs_A, filas_A = pyg_filas(struct, dev, snapsA, builder)
+                col_defs_B, filas_B = pyg_filas(struct, dev, snapsB, builder)
+
+            ventas_A = filas_A[0]["vals"][0] or 1.0
+            ventas_B = filas_B[0]["vals"][0] or 1.0
+            _rcls = {"header": "r-header", "subtotal": "r-sub", "result": "r-res",
+                     "italic": "r-ital", "subitem": "r-subi", "negative": "r-neg"}
+
+            def _label_html(f, ventas):
+                pct = (f["vals"][0] / ventas * 100) if ventas else 0.0
+                lab = f["label"]
+                tipo = f["tipo"]
+                if tipo == "header":
+                    return f"<strong>{lab}</strong>"
+                if tipo in ("subtotal", "result"):
+                    return f"<strong>{lab}: {pct:.2f}%</strong>"
+                if tipo == "italic":
+                    return f"<em>{lab}: {pct:.2f}%</em>"
+                if tipo == "negative":
+                    return f"{lab}: {abs(pct):.2f}%"
+                return f"{lab}: {pct:.2f}%"
+
+            def _tabla_grupo_html(col_defs, filas, ventas, titulo):
+                head = (f'<th class="lbl">{titulo}</th>'
+                        + "".join(f"<th>{nm}</th>" for _s, nm in col_defs))
+                body = ""
+                for f in filas:
+                    cls = _rcls.get(f["tipo"], "")
+                    cells = f'<td class="lbl">{_label_html(f, ventas)}</td>'
+                    for i, v in enumerate(f["vals"]):
+                        extra = " cons" if i == 0 else ""
+                        cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                    body += f'<tr class="{cls}">{cells}</tr>'
+                return (f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
+                        f'<tbody>{body}</tbody></table>')
+
+            def _tabla_diff_html(filas_a, filas_b):
+                body = ""
+                for fa, fb in zip(filas_a, filas_b):
+                    cls = _rcls.get(fa["tipo"], "")
+                    d = fa["vals"][0] - fb["vals"][0]
+                    pn = "pos" if d >= 0 else "neg"
+                    body += (f'<tr class="{cls}"><td class="num {pn}">'
+                             f'{_pyg_fmt_num(d)}</td></tr>')
+                return (f'<table class="cmp-tbl cmp-diff"><thead><tr>'
+                        f'<th>Diferencia (A−B)</th></tr></thead>'
+                        f'<tbody>{body}</tbody></table>')
+
+            _cmp_css = """<style>
+              .cmp-wrap{overflow-x:auto;padding-bottom:6px;}
+              .cmp-row{display:flex;gap:14px;align-items:flex-start;width:max-content;}
+              .cmp-tbl{border-collapse:collapse;font-size:14px;font-family:'Inter',sans-serif;}
+              .cmp-tbl th,.cmp-tbl td{padding:7px 12px;border-bottom:1px solid #eee;white-space:nowrap;}
+              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;font-weight:700;}
+              .cmp-tbl thead th.lbl{text-align:left;}
+              .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;}
+              .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+              .cmp-tbl td.cons{background:#ececec;font-weight:700;}
+              .cmp-tbl tr.r-header td,.cmp-tbl tr.r-sub td,.cmp-tbl tr.r-res td{font-weight:700;}
+              .cmp-tbl tr.r-sub td{border-top:1px solid #b0b0b0;}
+              .cmp-tbl tr.r-ital td{font-style:italic;}
+              .cmp-tbl tr.r-subi td{color:#9a9a9a;font-style:italic;}
+              .cmp-tbl tr.r-neg td.num{color:#c0392b;}
+              .cmp-diff td.num.pos{color:#1F7A44;font-weight:700;}
+              .cmp-diff td.num.neg{color:#c0392b;font-weight:700;}
+            </style>"""
+
+            _titA = " + ".join(grpA)
+            _titB = " + ".join(grpB)
+            html = (_cmp_css + '<div class="cmp-wrap"><div class="cmp-row">'
+                    + _tabla_grupo_html(col_defs_A, filas_A, ventas_A, f"🅰️ {_titA}")
+                    + _tabla_grupo_html(col_defs_B, filas_B, ventas_B, f"🅱️ {_titB}")
+                    + _tabla_diff_html(filas_A, filas_B)
+                    + '</div></div>')
+            st.markdown(html, unsafe_allow_html=True)
+
+            st.caption(f"Grupo A: {_titA} · corte {fechaA}  |  "
+                       f"Grupo B: {_titB} · corte {fechaB}")
+        except Exception as _e_cmp:
+            import traceback
+            st.error(f"❌ Error al comparar: {_e_cmp}")
+            st.code(traceback.format_exc())
