@@ -7226,8 +7226,17 @@ elif modulo == "🆚 Comparación Proyectos":
         fechaB = st.selectbox("Corte B", fb_com, key="cmp_B_fecha") if fb_com else None
 
     _cmp_disabled = not (grpA and fechaA and grpB and fechaB)
-    if st.button("📊 Comparar factibilidades", type="primary", disabled=_cmp_disabled):
-        st.session_state["cmp_run"] = True
+    _bc1, _bc2 = st.columns([1.4, 3])
+    with _bc1:
+        if st.button("📊 Comparar factibilidades", type="primary", disabled=_cmp_disabled):
+            st.session_state["cmp_run"] = True
+    with _bc2:
+        _cmp_desglose = st.toggle(
+            "🔎 Desglosar por proyecto",
+            value=False, key="cmp_desglose",
+            help="Apagado: solo el Consolidado de cada grupo (cabe sin scroll). "
+                 "Encendido: una columna por proyecto/etapa (puede requerir scroll).",
+        )
 
     if st.session_state.get("cmp_run") and not _cmp_disabled:
         try:
@@ -7261,16 +7270,16 @@ elif modulo == "🆚 Comparación Proyectos":
                     return f"{lab}: {abs(pct):.2f}%"
                 return f"{lab}: {pct:.2f}%"
 
-            def _tabla_grupo_html(col_defs, filas, ventas, titulo):
+            def _tabla_grupo_html(col_defs, filas, ventas, titulo, idxs):
                 head = (f'<th class="lbl">{titulo}</th>'
-                        + "".join(f"<th>{nm}</th>" for _s, nm in col_defs))
+                        + "".join(f"<th>{col_defs[i][1]}</th>" for i in idxs))
                 body = ""
                 for f in filas:
                     cls = _rcls.get(f["tipo"], "")
                     cells = f'<td class="lbl">{_label_html(f, ventas)}</td>'
-                    for i, v in enumerate(f["vals"]):
+                    for i in idxs:
                         extra = " cons" if i == 0 else ""
-                        cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                        cells += f'<td class="num{extra}">{_pyg_fmt_num(f["vals"][i])}</td>'
                     body += f'<tr class="{cls}">{cells}</tr>'
                 return (f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
                         f'<tbody>{body}</tbody></table>')
@@ -7293,7 +7302,7 @@ elif modulo == "🆚 Comparación Proyectos":
               .cmp-tbl{border-collapse:collapse;font-size:14px;font-family:'Inter',sans-serif;}
               .cmp-tbl th,.cmp-tbl td{padding:7px 12px;border-bottom:1px solid #eee;white-space:nowrap;}
               .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;font-weight:700;}
-              .cmp-tbl thead th.lbl{text-align:left;}
+              .cmp-tbl thead th.lbl{text-align:left;white-space:normal;max-width:300px;}
               .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;}
               .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
               .cmp-tbl td.cons{background:#ececec;font-weight:700;}
@@ -7308,9 +7317,11 @@ elif modulo == "🆚 Comparación Proyectos":
 
             _titA = " + ".join(grpA)
             _titB = " + ".join(grpB)
+            _idxA = list(range(len(col_defs_A))) if _cmp_desglose else [0]
+            _idxB = list(range(len(col_defs_B))) if _cmp_desglose else [0]
             html = (_cmp_css + '<div class="cmp-wrap"><div class="cmp-row">'
-                    + _tabla_grupo_html(col_defs_A, filas_A, ventas_A, f"🅰️ {_titA}")
-                    + _tabla_grupo_html(col_defs_B, filas_B, ventas_B, f"🅱️ {_titB}")
+                    + _tabla_grupo_html(col_defs_A, filas_A, ventas_A, f"🅰️ {_titA}", _idxA)
+                    + _tabla_grupo_html(col_defs_B, filas_B, ventas_B, f"🅱️ {_titB}", _idxB)
                     + _tabla_diff_html(filas_A, filas_B)
                     + '</div></div>')
             st.markdown(html, unsafe_allow_html=True)
