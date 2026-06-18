@@ -7200,7 +7200,7 @@ elif modulo == "🆚 Comparación Proyectos":
     st.markdown(
         "Selecciona **dos grupos** de proyectos/etapas y compara sus "
         "factibilidades (P&G) lado a lado, con la **diferencia** en los valores "
-        "consolidados (Grupo A − Grupo B)."
+        "consolidados (Grupo B − Grupo A)."
     )
     st.divider()
 
@@ -7287,12 +7287,12 @@ elif modulo == "🆚 Comparación Proyectos":
                 body = ""
                 for fa, fb in zip(filas_a, filas_b):
                     cls = _rcls.get(fa["tipo"], "")
-                    d = fa["vals"][0] - fb["vals"][0]
+                    d = fb["vals"][0] - fa["vals"][0]
                     pn = "pos" if d >= 0 else "neg"
                     body += (f'<tr class="{cls}"><td class="num {pn}">'
                              f'{_pyg_fmt_num(d)}</td></tr>')
                 return (f'<table class="cmp-tbl cmp-diff"><thead><tr>'
-                        f'<th>Diferencia (A−B)</th></tr></thead>'
+                        f'<th>Diferencia (B−A)</th></tr></thead>'
                         f'<tbody>{body}</tbody></table>')
 
             _cmp_css = """<style>
