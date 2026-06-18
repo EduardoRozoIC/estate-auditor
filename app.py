@@ -1079,7 +1079,9 @@ def pyg_filas(struct, dev_idx, snapshots, builder):
 
 
 def _cmp_xirr(cashflows, fechas_iso, guess=0.1):
-    """XIRR anualizada (misma lógica que xirr_fc) para flujos mensuales."""
+    """XIRR anualizada para flujos mensuales. Barre el rango buscando el primer
+    cambio de signo del VPN y lo afina por bisección. Encuentra TIR altas
+    (hasta ~10000%) sin descartarlas como N/A."""
     from datetime import date as _d
     pairs = [(cf, _d.fromisoformat(str(f)[:10])) for cf, f in zip(cashflows, fechas_iso) if cf != 0.0]
     if len(pairs) < 2:
@@ -1100,38 +1102,28 @@ def _cmp_xirr(cashflows, fechas_iso, guess=0.1):
                 return float("inf")
         return t
 
-    if npv(10.0) > 0:
-        return None
-
-    def dnpv(r):
-        t = 0.0
-        for cf, y in zip(cfs, yf):
-            try:
-                t -= y * cf / ((1.0 + r) ** (y + 1.0))
-            except (OverflowError, ZeroDivisionError):
-                return float("inf")
-        return t
-
-    rate = guess
-    for _ in range(500):
-        fv, dfv = npv(rate), dnpv(rate)
-        if abs(dfv) < 1e-14:
-            break
-        nr = max(-0.99, min(rate - fv / dfv, 10.0))
-        if abs(nr - rate) < 1e-9:
-            return nr
-        rate = nr
-    lo, hi = -0.99, 10.0
-    f_lo = npv(lo)
-    for _ in range(200):
-        mid = (lo + hi) / 2.0
-        f_mid = npv(mid)
-        if abs(f_mid) < 1e-6 or (hi - lo) < 1e-9:
-            return mid
-        if f_lo * f_mid < 0:
-            hi = mid
-        else:
-            lo, f_lo = mid, f_mid
+    lo, hi, step = -0.9, 100.0, 0.02   # de -90% a 10000%
+    prev_r = lo
+    prev_v = npv(lo)
+    r = lo + step
+    while r <= hi:
+        v = npv(r)
+        if prev_v == 0.0:
+            return prev_r
+        if (prev_v < 0) != (v < 0):       # cambio de signo → raíz en [prev_r, r]
+            a, b, fa = prev_r, r, prev_v
+            for _ in range(100):
+                m = (a + b) / 2.0
+                fm = npv(m)
+                if abs(fm) < 1.0 or (b - a) < 1e-10:
+                    return m
+                if (fa < 0) != (fm < 0):
+                    b = m
+                else:
+                    a, fa = m, fm
+            return (a + b) / 2.0
+        prev_r, prev_v = r, v
+        r += step
     return None
 
 def _cmp_fmt_tir(v):
