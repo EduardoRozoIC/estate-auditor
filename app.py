@@ -4420,6 +4420,12 @@ elif modulo == "📊 Reporte Proyecto":
                                 cols_periodo = anios_ord
 
                                 def _val_periodo(linea, anio):
+                                    # La 11.0 (Saldo Crédito) es un saldo acumulado:
+                                    # su valor anual es el saldo de CIERRE del año
+                                    # (último mes), no la suma de los saldos mensuales.
+                                    if linea.indice == "11.0":
+                                        meses = sorted(f for f in fechas_flujo if _anio_de(f) == anio)
+                                        return linea.valores.get(meses[-1], 0.0) if meses else 0.0
                                     return sum(
                                         linea.valores.get(f, 0.0)
                                         for f in fechas_flujo if _anio_de(f) == anio
@@ -4442,7 +4448,13 @@ elif modulo == "📊 Reporte Proyecto":
                                 row = {"Línea": nombre_display}
                                 for c in cols_periodo:
                                     row[col_label(c)] = _val_periodo(linea, c)
-                                row["TOTAL"] = linea.total_periodo
+                                if linea.indice == "11.0":
+                                    # Saldo final = saldo del último mes con dato
+                                    # (no la suma de saldos mensuales).
+                                    _ultf = max(fechas_flujo) if fechas_flujo else None
+                                    row["TOTAL"] = linea.valores.get(_ultf, 0.0) if _ultf else 0.0
+                                else:
+                                    row["TOTAL"] = linea.total_periodo
                                 rows.append(row)
 
                             df_flujo = pd.DataFrame(rows)
