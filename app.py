@@ -1078,6 +1078,118 @@ def pyg_filas(struct, dev_idx, snapshots, builder):
     return col_defs, filas
 
 
+def _cmp_xirr(cashflows, fechas_iso, guess=0.1):
+    """XIRR anualizada (misma lógica que xirr_fc) para flujos mensuales."""
+    from datetime import date as _d
+    pairs = [(cf, _d.fromisoformat(str(f)[:10])) for cf, f in zip(cashflows, fechas_iso) if cf != 0.0]
+    if len(pairs) < 2:
+        return None
+    cfs = [p[0] for p in pairs]
+    dts = [p[1] for p in pairs]
+    if not (any(v > 0 for v in cfs) and any(v < 0 for v in cfs)):
+        return None
+    d0 = dts[0]
+    yf = [(d - d0).days / 365.0 for d in dts]
+
+    def npv(r):
+        t = 0.0
+        for cf, y in zip(cfs, yf):
+            try:
+                t += cf / ((1.0 + r) ** y)
+            except (OverflowError, ZeroDivisionError):
+                return float("inf")
+        return t
+
+    if npv(10.0) > 0:
+        return None
+
+    def dnpv(r):
+        t = 0.0
+        for cf, y in zip(cfs, yf):
+            try:
+                t -= y * cf / ((1.0 + r) ** (y + 1.0))
+            except (OverflowError, ZeroDivisionError):
+                return float("inf")
+        return t
+
+    rate = guess
+    for _ in range(500):
+        fv, dfv = npv(rate), dnpv(rate)
+        if abs(dfv) < 1e-14:
+            break
+        nr = max(-0.99, min(rate - fv / dfv, 10.0))
+        if abs(nr - rate) < 1e-9:
+            return nr
+        rate = nr
+    lo, hi = -0.99, 10.0
+    f_lo = npv(lo)
+    for _ in range(200):
+        mid = (lo + hi) / 2.0
+        f_mid = npv(mid)
+        if abs(f_mid) < 1e-6 or (hi - lo) < 1e-9:
+            return mid
+        if f_lo * f_mid < 0:
+            hi = mid
+        else:
+            lo, f_lo = mid, f_mid
+    return None
+
+def _cmp_fmt_tir(v):
+    return f"{v * 100:.2f}% E.A." if v is not None else "N/A"
+
+def _cmp_serie_mes(indice, snapshots, builder, fechas):
+    P = Participacion
+    agg = {}
+    for s in snapshots:
+        l = builder.get_linea_exacta(s, indice, P.TOTAL) or builder.get_linea_exacta(s, indice, P.IC)
+        if l:
+            for f, v in l.valores.items():
+                agg[f] = agg.get(f, 0.0) + (v or 0.0)
+    return [agg.get(f, 0.0) for f in fechas]
+
+def cmp_tirs(snapshots, builder):
+    """Devuelve (TIR FCO, TIR K) consolidadas del grupo."""
+    fechas = sorted(set().union(*[set(s.fechas_flujo) for s in snapshots])) if snapshots else []
+    if not fechas:
+        return None, None
+    ing = _cmp_serie_mes("1.0", snapshots, builder, fechas)
+    c9  = _cmp_serie_mes("9.0", snapshots, builder, fechas)
+    c6  = _cmp_serie_mes("6.0", snapshots, builder, fechas)
+    raw = [ing[k] - (c9[k] - c6[k]) for k in range(len(fechas))]
+    tir_fco = _cmp_xirr(raw, fechas)
+    ap = [-abs(v) for v in _cmp_serie_mes("13.2", snapshots, builder, fechas)]
+    re = [abs(v) for v in _cmp_serie_mes("13.4", snapshots, builder, fechas)]
+    fk = [a + r for a, r in zip(ap, re)]
+    tir_k = _cmp_xirr(fk, fechas)
+    return tir_fco, tir_k
+
+def cmp_hitos(snapshots, builder):
+    """Devuelve (grupos, orden) con hitos Ventas/Obra/Entregas por proyecto."""
+    from datetime import date as _d
+    P = Participacion
+    hito_defs = [("Ventas", "17.1"), ("Obra", "3.22"), ("Entregas", "18.1")]
+
+    def _rango(snap, idx):
+        l = builder.get_linea_exacta(snap, idx, P.TOTAL)
+        if not l:
+            return None, None
+        act = [f for f in snap.fechas_flujo if l.valores.get(f, 0.0) != 0.0]
+        return (act[0], act[-1]) if act else (None, None)
+
+    grupos, orden = {}, []
+    for s in snapshots:
+        for nm, idx in hito_defs:
+            fi, ff = _rango(s, idx)
+            if fi:
+                p = str(s.proyecto)
+                if p not in grupos:
+                    grupos[p] = []; orden.append(p)
+                di, df_ = _d.fromisoformat(fi), _d.fromisoformat(ff)
+                dur = max(1, (df_.year - di.year) * 12 + df_.month - di.month)
+                grupos[p].append((nm, fi, ff, f"{dur} meses"))
+    return grupos, orden
+
+
 # ─────────────────────────────────────────────
 # SIDEBAR NAVEGACIÓN
 # ─────────────────────────────────────────────
@@ -7210,9 +7322,64 @@ elif modulo == "🆚 Comparación Proyectos":
                     + _tabla_diff_html(filas_A, filas_B)
                     + '</div></div>')
             st.markdown(html, unsafe_allow_html=True)
-
             st.caption(f"Grupo A: {_titA} · corte {fechaA}  |  "
                        f"Grupo B: {_titB} · corte {fechaB}")
+
+            # ── Indicadores TIR + cronograma de hitos bajo cada factibilidad ──
+            tirfco_A, tirk_A = cmp_tirs(snapsA, builder)
+            tirfco_B, tirk_B = cmp_tirs(snapsB, builder)
+            gruposA, ordenA = cmp_hitos(snapsA, builder)
+            gruposB, ordenB = cmp_hitos(snapsB, builder)
+
+            _hitos_css = """<style>
+              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:13px;}
+              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:6px 9px;}
+              .hcmp td{padding:5px 9px;border-bottom:1px solid #eee;}
+              .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
+                          border-right:1px solid #e2d6d6;vertical-align:middle;}
+              .hcmp tr.grp-top td{border-top:2.5px solid #681E1E;}
+            </style>"""
+
+            def _tir_html(tfco, tk):
+                return (
+                    '<div style="display:flex;gap:10px;margin:6px 0 10px;">'
+                    f'<div class="kpi-box" style="flex:1"><div class="kpi-label">TIR FCO</div>'
+                    f'<div class="kpi-value">{_cmp_fmt_tir(tfco)}</div>'
+                    '<div class="kpi-sub">Operativa · sin financieros</div></div>'
+                    f'<div class="kpi-box" style="flex:1"><div class="kpi-label">TIR K</div>'
+                    f'<div class="kpi-value">{_cmp_fmt_tir(tk)}</div>'
+                    '<div class="kpi-sub">Capital · aportes/reintegros IC</div></div>'
+                    '</div>'
+                )
+
+            def _hitos_html(grupos, orden):
+                if not orden:
+                    return '<p style="color:#888;font-size:13px;">Sin hitos de cronograma (17.1/3.22/18.1).</p>'
+                rows = ""
+                for p in orden:
+                    g = grupos[p]
+                    for ri, (hi, ini, fn, du) in enumerate(g):
+                        cls = ' class="grp-top"' if ri == 0 else ""
+                        pcell = f'<td class="hp" rowspan="{len(g)}">{p}</td>' if ri == 0 else ""
+                        rows += (f'<tr{cls}>{pcell}<td>{hi}</td><td>{ini}</td>'
+                                 f'<td>{fn}</td><td>{du}</td></tr>')
+                return (_hitos_css + '<table class="hcmp"><thead><tr>'
+                        '<th>Proyecto</th><th>Hito</th><th>Inicio</th>'
+                        '<th>Fin</th><th>Duración</th></tr></thead>'
+                        f'<tbody>{rows}</tbody></table>')
+
+            st.divider()
+            cgA, cgB = st.columns(2)
+            with cgA:
+                st.markdown(f"##### 🅰️ {_titA}")
+                st.markdown(_tir_html(tirfco_A, tirk_A), unsafe_allow_html=True)
+                st.markdown("**📅 Cronograma — Hitos**")
+                st.markdown(_hitos_html(gruposA, ordenA), unsafe_allow_html=True)
+            with cgB:
+                st.markdown(f"##### 🅱️ {_titB}")
+                st.markdown(_tir_html(tirfco_B, tirk_B), unsafe_allow_html=True)
+                st.markdown("**📅 Cronograma — Hitos**")
+                st.markdown(_hitos_html(gruposB, ordenB), unsafe_allow_html=True)
         except Exception as _e_cmp:
             import traceback
             st.error(f"❌ Error al comparar: {_e_cmp}")
