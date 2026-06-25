@@ -7201,13 +7201,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
 # ═════════════════════════════════════════════
 
 elif modulo == "🆚 Comparación Proyectos":
-    st.title("🆚 Comparación de Proyectos")
-    st.markdown(
-        "Selecciona **dos grupos** de proyectos/etapas y compara sus "
-        "factibilidades (P&G) lado a lado, con la **diferencia** en los valores "
-        "consolidados (Grupo B − Grupo A)."
-    )
-    st.divider()
+    st.markdown("#### 🆚 Comparación de Proyectos")
 
     if not st.session_state.records:
         st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
@@ -7221,21 +7215,19 @@ elif modulo == "🆚 Comparación Proyectos":
 
     selA, selB = st.columns(2)
     with selA:
-        st.markdown("#### 🅰️ Grupo A")
-        grpA = st.multiselect("Proyectos A", resp.proyectos,
+        grpA = st.multiselect("🅰️ Grupo A", resp.proyectos,
                               default=resp.proyectos[:1], key="cmp_A_proy")
         fa_com = _fechas_comunes(grpA)
         if grpA and not fa_com:
-            st.warning("⚠️ No hay corte común a los proyectos del Grupo A.")
+            st.warning("Sin corte común en A.")
         fechaA = st.selectbox("Corte A", fa_com, key="cmp_A_fecha") if fa_com else None
     with selB:
-        st.markdown("#### 🅱️ Grupo B")
         _defB = resp.proyectos[1:2] if len(resp.proyectos) > 1 else resp.proyectos[:1]
-        grpB = st.multiselect("Proyectos B", resp.proyectos,
+        grpB = st.multiselect("🅱️ Grupo B", resp.proyectos,
                               default=_defB, key="cmp_B_proy")
         fb_com = _fechas_comunes(grpB)
         if grpB and not fb_com:
-            st.warning("⚠️ No hay corte común a los proyectos del Grupo B.")
+            st.warning("Sin corte común en B.")
         fechaB = st.selectbox("Corte B", fb_com, key="cmp_B_fecha") if fb_com else None
 
     _cmp_disabled = not (grpA and fechaA and grpB and fechaB)
@@ -7301,11 +7293,11 @@ elif modulo == "🆚 Comparación Proyectos":
                         f'<tbody>{body}</tbody></table>')
 
             _cmp_css = """<style>
-              .cmp-wrap{overflow-x:auto;padding-bottom:6px;}
-              .cmp-row{display:flex;gap:14px;align-items:flex-start;width:max-content;}
-              .cmp-tbl{border-collapse:collapse;font-size:14px;font-family:'Inter',sans-serif;}
-              .cmp-tbl th,.cmp-tbl td{padding:7px 12px;border-bottom:1px solid #eee;white-space:nowrap;}
-              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;font-weight:700;}
+              .cmp-wrap{overflow-x:auto;padding-bottom:2px;}
+              .cmp-row{display:flex;gap:8px;align-items:flex-start;width:max-content;}
+              .cmp-tbl{border-collapse:collapse;font-size:11px;font-family:'Inter',sans-serif;line-height:1.15;}
+              .cmp-tbl th,.cmp-tbl td{padding:2px 6px;border-bottom:1px solid #eee;white-space:nowrap;}
+              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;font-weight:700;padding:3px 6px;}
               .cmp-tbl thead th.lbl{text-align:left;}
               .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;}
               .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
@@ -7327,8 +7319,6 @@ elif modulo == "🆚 Comparación Proyectos":
                     + _tabla_diff_html(filas_A, filas_B)
                     + '</div></div>')
             st.markdown(html, unsafe_allow_html=True)
-            st.caption(f"Grupo A: {_titA} · corte {fechaA}  |  "
-                       f"Grupo B: {_titB} · corte {fechaB}")
 
             # ── Indicadores TIR + cronograma de hitos bajo cada factibilidad ──
             tirfco_A, tirk_A = cmp_tirs(snapsA, builder)
@@ -7337,23 +7327,23 @@ elif modulo == "🆚 Comparación Proyectos":
             gruposB, ordenB = cmp_hitos(snapsB, builder)
 
             _hitos_css = """<style>
-              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:13px;}
-              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:6px 9px;}
-              .hcmp td{padding:5px 9px;border-bottom:1px solid #eee;}
+              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:11px;line-height:1.15;}
+              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:2px 5px;}
+              .hcmp td{padding:2px 5px;border-bottom:1px solid #eee;}
               .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
                           border-right:1px solid #e2d6d6;vertical-align:middle;}
-              .hcmp tr.grp-top td{border-top:2.5px solid #681E1E;}
+              .hcmp tr.grp-top td{border-top:2px solid #681E1E;}
             </style>"""
 
             def _tir_html(tfco, tk):
                 return (
-                    '<div style="display:flex;gap:10px;margin:6px 0 10px;">'
-                    f'<div class="kpi-box" style="flex:1"><div class="kpi-label">TIR FCO</div>'
-                    f'<div class="kpi-value">{_cmp_fmt_tir(tfco)}</div>'
-                    '<div class="kpi-sub">Operativa · sin financieros</div></div>'
-                    f'<div class="kpi-box" style="flex:1"><div class="kpi-label">TIR K</div>'
-                    f'<div class="kpi-value">{_cmp_fmt_tir(tk)}</div>'
-                    '<div class="kpi-sub">Capital · aportes/reintegros IC</div></div>'
+                    '<div style="display:flex;gap:6px;margin:2px 0 4px;">'
+                    f'<div style="flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;">'
+                    f'<span style="font-size:11px;color:#666;">TIR FCO</span> '
+                    f'<strong style="font-size:13px;">{_cmp_fmt_tir(tfco)}</strong></div>'
+                    f'<div style="flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;">'
+                    f'<span style="font-size:11px;color:#666;">TIR K</span> '
+                    f'<strong style="font-size:13px;">{_cmp_fmt_tir(tk)}</strong></div>'
                     '</div>'
                 )
 
@@ -7373,17 +7363,12 @@ elif modulo == "🆚 Comparación Proyectos":
                         '<th>Fin</th><th>Duración</th></tr></thead>'
                         f'<tbody>{rows}</tbody></table>')
 
-            st.divider()
             cgA, cgB = st.columns(2)
             with cgA:
-                st.markdown(f"##### 🅰️ {_titA}")
                 st.markdown(_tir_html(tirfco_A, tirk_A), unsafe_allow_html=True)
-                st.markdown("**📅 Cronograma — Hitos**")
                 st.markdown(_hitos_html(gruposA, ordenA), unsafe_allow_html=True)
             with cgB:
-                st.markdown(f"##### 🅱️ {_titB}")
                 st.markdown(_tir_html(tirfco_B, tirk_B), unsafe_allow_html=True)
-                st.markdown("**📅 Cronograma — Hitos**")
                 st.markdown(_hitos_html(gruposB, ordenB), unsafe_allow_html=True)
         except Exception as _e_cmp:
             import traceback
