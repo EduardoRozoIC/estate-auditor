@@ -7266,64 +7266,59 @@ elif modulo == "🆚 Comparación Proyectos":
                     return f"{lab}: {abs(pct):.2f}%"
                 return f"{lab}: {pct:.2f}%"
 
-            def _tabla_grupo_html(col_defs, filas, ventas, titulo):
-                head = (f'<th class="lbl">{titulo}</th>'
-                        + "".join(f"<th>{nm}</th>" for _s, nm in col_defs))
+            def _tabla_unificada_html(col_defs_A, filas_A, ventas_A, titulo_A,
+                                     col_defs_B, filas_B, ventas_B, titulo_B):
+                head = f'<th class="lbl">{titulo_A}</th>'
+                for _s, nm in col_defs_A:
+                    head += f'<th>{nm}</th>'
+                head += f'<th class="lbl sep">{titulo_B}</th>'
+                for _s, nm in col_defs_B:
+                    head += f'<th>{nm}</th>'
+                head += '<th class="sep">B−A</th>'
                 body = ""
-                for f in filas:
-                    cls = _rcls.get(f["tipo"], "")
-                    cells = f'<td class="lbl">{_label_html(f, ventas)}</td>'
-                    for i, v in enumerate(f["vals"]):
+                for fa, fb in zip(filas_A, filas_B):
+                    cls = _rcls.get(fa["tipo"], "")
+                    cells = f'<td class="lbl">{_label_html(fa, ventas_A)}</td>'
+                    for i, v in enumerate(fa["vals"]):
                         extra = " cons" if i == 0 else ""
                         cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                    cells += f'<td class="lbl sep">{_label_html(fb, ventas_B)}</td>'
+                    for i, v in enumerate(fb["vals"]):
+                        extra = " cons" if i == 0 else ""
+                        cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                    d = fb["vals"][0] - fa["vals"][0]
+                    pn = "pos" if d >= 0 else "neg"
+                    cells += f'<td class="num sep {pn}">{_pyg_fmt_num(d)}</td>'
                     body += f'<tr class="{cls}">{cells}</tr>'
                 return (f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
                         f'<tbody>{body}</tbody></table>')
 
-            def _tabla_diff_html(filas_a, filas_b):
-                body = ""
-                for fa, fb in zip(filas_a, filas_b):
-                    cls = _rcls.get(fa["tipo"], "")
-                    d = fb["vals"][0] - fa["vals"][0]
-                    pn = "pos" if d >= 0 else "neg"
-                    body += (f'<tr class="{cls}"><td class="num {pn}">'
-                             f'{_pyg_fmt_num(d)}</td></tr>')
-                return (f'<table class="cmp-tbl cmp-diff"><thead><tr>'
-                        f'<th>B−A</th></tr></thead>'
-                        f'<tbody>{body}</tbody></table>')
-
             _cmp_css = """<style>
-              .cmp-wrap{width:100%;overflow:hidden;}
-              .cmp-row{display:flex;gap:4px;width:100%;}
-              .cmp-grp{flex:1;min-width:0;overflow:hidden;}
-              .cmp-dc{flex:0 0 auto;min-width:0;}
               .cmp-tbl{border-collapse:collapse;font-size:13px;font-family:'Inter',sans-serif;
                        line-height:1.2;table-layout:auto;width:100%;}
               .cmp-tbl th,.cmp-tbl td{padding:2px 4px;border-bottom:1px solid #eee;}
               .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;
                                 font-weight:700;padding:3px 4px;white-space:normal;word-break:break-word;
-                                font-size:10px;}
+                                font-size:10px;vertical-align:bottom;}
               .cmp-tbl thead th.lbl{text-align:left;font-size:11px;}
               .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;white-space:nowrap;}
               .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
               .cmp-tbl td.cons{background:#ececec;font-weight:700;}
+              .cmp-tbl .sep{border-left:2px solid #681E1E;}
               .cmp-tbl tr.r-header td,.cmp-tbl tr.r-sub td,.cmp-tbl tr.r-res td{font-weight:700;}
               .cmp-tbl tr.r-sub td{border-top:1px solid #b0b0b0;}
               .cmp-tbl tr.r-ital td{font-style:italic;}
               .cmp-tbl tr.r-subi td{color:#9a9a9a;font-style:italic;}
               .cmp-tbl tr.r-neg td.num{color:#c0392b;}
-              .cmp-diff td.num.pos{color:#1F7A44;font-weight:700;}
-              .cmp-diff td.num.neg{color:#c0392b;font-weight:700;}
+              .cmp-tbl td.num.pos{color:#1F7A44;font-weight:700;}
+              .cmp-tbl td.num.neg{color:#c0392b;font-weight:700;}
             </style>"""
 
             _titA = " + ".join(grpA)
             _titB = " + ".join(grpB)
             html = (_cmp_css
-                    + '<div class="cmp-wrap"><div class="cmp-row">'
-                    + f'<div class="cmp-grp">{_tabla_grupo_html(col_defs_A, filas_A, ventas_A, "🅰️ " + _titA)}</div>'
-                    + f'<div class="cmp-grp">{_tabla_grupo_html(col_defs_B, filas_B, ventas_B, "🅱️ " + _titB)}</div>'
-                    + f'<div class="cmp-dc">{_tabla_diff_html(filas_A, filas_B)}</div>'
-                    + '</div></div>')
+                    + _tabla_unificada_html(col_defs_A, filas_A, ventas_A, "🅰️ " + _titA,
+                                           col_defs_B, filas_B, ventas_B, "🅱️ " + _titB))
             st.markdown(html, unsafe_allow_html=True)
 
             # ── Indicadores TIR + cronograma de hitos bajo cada factibilidad ──
