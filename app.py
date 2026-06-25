@@ -7267,6 +7267,13 @@ elif modulo == "🆚 Comparación Proyectos":
                 return f"{lab}: {pct:.2f}%"
 
             def _tabla_grupo_html(col_defs, filas, ventas, titulo):
+                ncols = len(col_defs)
+                lbl_w = 35
+                num_w = (100 - lbl_w) // ncols if ncols else 65
+                cg = f'<colgroup><col style="width:{lbl_w}%">'
+                for _ in col_defs:
+                    cg += f'<col style="width:{num_w}%">'
+                cg += '</colgroup>'
                 head = (f'<th class="lbl">{titulo}</th>'
                         + "".join(f"<th>{nm}</th>" for _s, nm in col_defs))
                 body = ""
@@ -7277,7 +7284,7 @@ elif modulo == "🆚 Comparación Proyectos":
                         extra = " cons" if i == 0 else ""
                         cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
                     body += f'<tr class="{cls}">{cells}</tr>'
-                return (f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
+                return (f'<table class="cmp-tbl">{cg}<thead><tr>{head}</tr></thead>'
                         f'<tbody>{body}</tbody></table>')
 
             def _tabla_diff_html(filas_a, filas_b):
@@ -7289,18 +7296,24 @@ elif modulo == "🆚 Comparación Proyectos":
                     body += (f'<tr class="{cls}"><td class="num {pn}">'
                              f'{_pyg_fmt_num(d)}</td></tr>')
                 return (f'<table class="cmp-tbl cmp-diff"><thead><tr>'
-                        f'<th>Diferencia (B−A)</th></tr></thead>'
+                        f'<th>B−A</th></tr></thead>'
                         f'<tbody>{body}</tbody></table>')
 
             _cmp_css = """<style>
-              .cmp-wrap{overflow-x:auto;padding-bottom:2px;}
-              .cmp-row{display:flex;gap:8px;align-items:flex-start;width:max-content;}
-              .cmp-tbl{border-collapse:collapse;font-size:11px;font-family:'Inter',sans-serif;line-height:1.15;}
-              .cmp-tbl th,.cmp-tbl td{padding:2px 6px;border-bottom:1px solid #eee;white-space:nowrap;}
-              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;font-weight:700;padding:3px 6px;}
+              .cmp-wrap{width:100%;overflow:hidden;}
+              .cmp-row{display:flex;gap:4px;width:100%;}
+              .cmp-grp{flex:1;min-width:0;overflow:hidden;}
+              .cmp-dc{flex:0 0 70px;min-width:0;}
+              .cmp-tbl{border-collapse:collapse;font-size:11px;font-family:'Inter',sans-serif;
+                       line-height:1.15;table-layout:fixed;width:100%;}
+              .cmp-tbl th,.cmp-tbl td{padding:2px 4px;border-bottom:1px solid #eee;
+                                      overflow:hidden;text-overflow:ellipsis;}
+              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;
+                                font-weight:700;padding:3px 4px;white-space:normal;word-break:break-word;}
               .cmp-tbl thead th.lbl{text-align:left;}
-              .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;}
-              .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;}
+              .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;
+                              white-space:normal;word-break:break-word;}
+              .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
               .cmp-tbl td.cons{background:#ececec;font-weight:700;}
               .cmp-tbl tr.r-header td,.cmp-tbl tr.r-sub td,.cmp-tbl tr.r-res td{font-weight:700;}
               .cmp-tbl tr.r-sub td{border-top:1px solid #b0b0b0;}
@@ -7313,10 +7326,11 @@ elif modulo == "🆚 Comparación Proyectos":
 
             _titA = " + ".join(grpA)
             _titB = " + ".join(grpB)
-            html = (_cmp_css + '<div class="cmp-wrap"><div class="cmp-row">'
-                    + _tabla_grupo_html(col_defs_A, filas_A, ventas_A, f"🅰️ {_titA}")
-                    + _tabla_grupo_html(col_defs_B, filas_B, ventas_B, f"🅱️ {_titB}")
-                    + _tabla_diff_html(filas_A, filas_B)
+            html = (_cmp_css
+                    + '<div class="cmp-wrap"><div class="cmp-row">'
+                    + f'<div class="cmp-grp">{_tabla_grupo_html(col_defs_A, filas_A, ventas_A, "🅰️ " + _titA)}</div>'
+                    + f'<div class="cmp-grp">{_tabla_grupo_html(col_defs_B, filas_B, ventas_B, "🅱️ " + _titB)}</div>'
+                    + f'<div class="cmp-dc">{_tabla_diff_html(filas_A, filas_B)}</div>'
                     + '</div></div>')
             st.markdown(html, unsafe_allow_html=True)
 
