@@ -7321,22 +7321,12 @@ elif modulo == "🆚 Comparación Proyectos":
                                            col_defs_B, filas_B, ventas_B, "🅱️ " + _titB))
             st.markdown(html, unsafe_allow_html=True)
 
-            # ── Indicadores TIR + cronograma de hitos bajo cada factibilidad ──
             tirfco_A, tirk_A = cmp_tirs(snapsA, builder)
             tirfco_B, tirk_B = cmp_tirs(snapsB, builder)
             gruposA, ordenA = cmp_hitos(snapsA, builder)
             gruposB, ordenB = cmp_hitos(snapsB, builder)
 
-            _hitos_css = """<style>
-              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:11px;line-height:1.15;}
-              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:2px 5px;}
-              .hcmp td{padding:2px 5px;border-bottom:1px solid #eee;}
-              .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
-                          border-right:1px solid #e2d6d6;vertical-align:middle;}
-              .hcmp tr.grp-top td{border-top:2px solid #681E1E;}
-            </style>"""
-
-            def _tir_html(tfco, tk):
+            def _tir_strip(tfco, tk):
                 return (
                     '<div style="display:flex;gap:6px;margin:2px 0 4px;">'
                     f'<div style="flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;">'
@@ -7348,9 +7338,9 @@ elif modulo == "🆚 Comparación Proyectos":
                     '</div>'
                 )
 
-            def _hitos_html(grupos, orden):
+            def _hitos_block(grupos, orden):
                 if not orden:
-                    return '<p style="color:#888;font-size:13px;">Sin hitos de cronograma (17.1/3.22/18.1).</p>'
+                    return '<p style="color:#888;font-size:11px;margin:0;">Sin hitos.</p>'
                 rows = ""
                 for p in orden:
                     g = grupos[p]
@@ -7359,18 +7349,29 @@ elif modulo == "🆚 Comparación Proyectos":
                         pcell = f'<td class="hp" rowspan="{len(g)}">{p}</td>' if ri == 0 else ""
                         rows += (f'<tr{cls}>{pcell}<td>{hi}</td><td>{ini}</td>'
                                  f'<td>{fn}</td><td>{du}</td></tr>')
-                return (_hitos_css + '<table class="hcmp"><thead><tr>'
+                return ('<table class="hcmp"><thead><tr>'
                         '<th>Proyecto</th><th>Hito</th><th>Inicio</th>'
                         '<th>Fin</th><th>Duración</th></tr></thead>'
                         f'<tbody>{rows}</tbody></table>')
 
-            cgA, cgB = st.columns(2)
-            with cgA:
-                st.markdown(_tir_html(tirfco_A, tirk_A), unsafe_allow_html=True)
-                st.markdown(_hitos_html(gruposA, ordenA), unsafe_allow_html=True)
-            with cgB:
-                st.markdown(_tir_html(tirfco_B, tirk_B), unsafe_allow_html=True)
-                st.markdown(_hitos_html(gruposB, ordenB), unsafe_allow_html=True)
+            _bottom_css = """<style>
+              .cmp-bottom{display:flex;gap:0;width:100%;}
+              .cmp-half{flex:1;min-width:0;padding:0 4px;}
+              .cmp-half+.cmp-half{border-left:2px solid #681E1E;}
+              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:11px;line-height:1.15;}
+              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:2px 5px;}
+              .hcmp td{padding:2px 5px;border-bottom:1px solid #eee;}
+              .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
+                          border-right:1px solid #e2d6d6;vertical-align:middle;}
+              .hcmp tr.grp-top td{border-top:2px solid #681E1E;}
+            </style>"""
+
+            html_bottom = (_bottom_css
+                + '<div class="cmp-bottom">'
+                + f'<div class="cmp-half">{_tir_strip(tirfco_A, tirk_A)}{_hitos_block(gruposA, ordenA)}</div>'
+                + f'<div class="cmp-half">{_tir_strip(tirfco_B, tirk_B)}{_hitos_block(gruposB, ordenB)}</div>'
+                + '</div>')
+            st.markdown(html_bottom, unsafe_allow_html=True)
         except Exception as _e_cmp:
             import traceback
             st.error(f"❌ Error al comparar: {_e_cmp}")
