@@ -7266,33 +7266,6 @@ elif modulo == "🆚 Comparación Proyectos":
                     return f"{lab}: {abs(pct):.2f}%"
                 return f"{lab}: {pct:.2f}%"
 
-            def _tabla_unificada_html(col_defs_A, filas_A, ventas_A, titulo_A,
-                                     col_defs_B, filas_B, ventas_B, titulo_B):
-                head = f'<th class="lbl">{titulo_A}</th>'
-                for _s, nm in col_defs_A:
-                    head += f'<th>{nm}</th>'
-                head += f'<th class="lbl sep">{titulo_B}</th>'
-                for _s, nm in col_defs_B:
-                    head += f'<th>{nm}</th>'
-                head += '<th class="sep">B−A</th>'
-                body = ""
-                for fa, fb in zip(filas_A, filas_B):
-                    cls = _rcls.get(fa["tipo"], "")
-                    cells = f'<td class="lbl">{_label_html(fa, ventas_A)}</td>'
-                    for i, v in enumerate(fa["vals"]):
-                        extra = " cons" if i == 0 else ""
-                        cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
-                    cells += f'<td class="lbl sep">{_label_html(fb, ventas_B)}</td>'
-                    for i, v in enumerate(fb["vals"]):
-                        extra = " cons" if i == 0 else ""
-                        cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
-                    d = fb["vals"][0] - fa["vals"][0]
-                    pn = "pos" if d >= 0 else "neg"
-                    cells += f'<td class="num sep {pn}">{_pyg_fmt_num(d)}</td>'
-                    body += f'<tr class="{cls}">{cells}</tr>'
-                return (f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
-                        f'<tbody>{body}</tbody></table>')
-
             _cmp_css = """<style>
               .cmp-tbl{border-collapse:collapse;font-size:13px;font-family:'Inter',sans-serif;
                        line-height:1.2;table-layout:auto;width:100%;}
@@ -7312,14 +7285,18 @@ elif modulo == "🆚 Comparación Proyectos":
               .cmp-tbl tr.r-neg td.num{color:#c0392b;}
               .cmp-tbl td.num.pos{color:#1F7A44;font-weight:700;}
               .cmp-tbl td.num.neg{color:#c0392b;font-weight:700;}
+              .cmp-tbl td.cmp-extra{border-bottom:none;padding:4px;vertical-align:top;}
+              .cmp-tir{display:flex;gap:6px;margin:2px 0 4px;}
+              .cmp-tir-box{flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;}
+              .cmp-tir-box span{font-size:11px;color:#666;}
+              .cmp-tir-box strong{font-size:13px;}
+              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:11px;line-height:1.15;}
+              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:2px 5px;}
+              .hcmp td{padding:2px 5px;border-bottom:1px solid #eee;}
+              .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
+                          border-right:1px solid #e2d6d6;vertical-align:middle;}
+              .hcmp tr.grp-top td{border-top:2px solid #681E1E;}
             </style>"""
-
-            _titA = " + ".join(grpA)
-            _titB = " + ".join(grpB)
-            html = (_cmp_css
-                    + _tabla_unificada_html(col_defs_A, filas_A, ventas_A, "🅰️ " + _titA,
-                                           col_defs_B, filas_B, ventas_B, "🅱️ " + _titB))
-            st.markdown(html, unsafe_allow_html=True)
 
             tirfco_A, tirk_A = cmp_tirs(snapsA, builder)
             tirfco_B, tirk_B = cmp_tirs(snapsB, builder)
@@ -7328,13 +7305,11 @@ elif modulo == "🆚 Comparación Proyectos":
 
             def _tir_strip(tfco, tk):
                 return (
-                    '<div style="display:flex;gap:6px;margin:2px 0 4px;">'
-                    f'<div style="flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;">'
-                    f'<span style="font-size:11px;color:#666;">TIR FCO</span> '
-                    f'<strong style="font-size:13px;">{_cmp_fmt_tir(tfco)}</strong></div>'
-                    f'<div style="flex:1;background:#f7f2f2;border-left:3px solid #681E1E;padding:3px 8px;">'
-                    f'<span style="font-size:11px;color:#666;">TIR K</span> '
-                    f'<strong style="font-size:13px;">{_cmp_fmt_tir(tk)}</strong></div>'
+                    '<div class="cmp-tir">'
+                    f'<div class="cmp-tir-box"><span>TIR FCO</span> '
+                    f'<strong>{_cmp_fmt_tir(tfco)}</strong></div>'
+                    f'<div class="cmp-tir-box"><span>TIR K</span> '
+                    f'<strong>{_cmp_fmt_tir(tk)}</strong></div>'
                     '</div>'
                 )
 
@@ -7354,24 +7329,45 @@ elif modulo == "🆚 Comparación Proyectos":
                         '<th>Fin</th><th>Duración</th></tr></thead>'
                         f'<tbody>{rows}</tbody></table>')
 
-            _bottom_css = """<style>
-              .cmp-bottom{display:flex;gap:0;width:100%;}
-              .cmp-half{flex:1;min-width:0;padding:0 4px;}
-              .cmp-half+.cmp-half{border-left:2px solid #681E1E;}
-              .hcmp{border-collapse:collapse;width:100%;font-family:'Inter',sans-serif;font-size:11px;line-height:1.15;}
-              .hcmp thead th{background:#681E1E;color:#fff;font-weight:700;text-align:left;padding:2px 5px;}
-              .hcmp td{padding:2px 5px;border-bottom:1px solid #eee;}
-              .hcmp td.hp{font-weight:700;color:#681E1E;background:#faf6f6;
-                          border-right:1px solid #e2d6d6;vertical-align:middle;}
-              .hcmp tr.grp-top td{border-top:2px solid #681E1E;}
-            </style>"""
+            _titA = " + ".join(grpA)
+            _titB = " + ".join(grpB)
+            ncA = 1 + len(col_defs_A)
+            ncB = 1 + len(col_defs_B)
 
-            html_bottom = (_bottom_css
-                + '<div class="cmp-bottom">'
-                + f'<div class="cmp-half">{_tir_strip(tirfco_A, tirk_A)}{_hitos_block(gruposA, ordenA)}</div>'
-                + f'<div class="cmp-half">{_tir_strip(tirfco_B, tirk_B)}{_hitos_block(gruposB, ordenB)}</div>'
-                + '</div>')
-            st.markdown(html_bottom, unsafe_allow_html=True)
+            head = f'<th class="lbl">🅰️ {_titA}</th>'
+            for _s, nm in col_defs_A:
+                head += f'<th>{nm}</th>'
+            head += f'<th class="lbl sep">🅱️ {_titB}</th>'
+            for _s, nm in col_defs_B:
+                head += f'<th>{nm}</th>'
+            head += '<th class="sep">B−A</th>'
+
+            body = ""
+            for fa, fb in zip(filas_A, filas_B):
+                cls = _rcls.get(fa["tipo"], "")
+                cells = f'<td class="lbl">{_label_html(fa, ventas_A)}</td>'
+                for i, v in enumerate(fa["vals"]):
+                    extra = " cons" if i == 0 else ""
+                    cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                cells += f'<td class="lbl sep">{_label_html(fb, ventas_B)}</td>'
+                for i, v in enumerate(fb["vals"]):
+                    extra = " cons" if i == 0 else ""
+                    cells += f'<td class="num{extra}">{_pyg_fmt_num(v)}</td>'
+                d = fb["vals"][0] - fa["vals"][0]
+                pn = "pos" if d >= 0 else "neg"
+                cells += f'<td class="num sep {pn}">{_pyg_fmt_num(d)}</td>'
+                body += f'<tr class="{cls}">{cells}</tr>'
+
+            extra_a = _tir_strip(tirfco_A, tirk_A) + _hitos_block(gruposA, ordenA)
+            extra_b = _tir_strip(tirfco_B, tirk_B) + _hitos_block(gruposB, ordenB)
+            body += (f'<tr><td colspan="{ncA}" class="cmp-extra">{extra_a}</td>'
+                     f'<td colspan="{ncB}" class="cmp-extra sep">{extra_b}</td>'
+                     f'<td class="cmp-extra sep"></td></tr>')
+
+            html = (_cmp_css
+                    + f'<table class="cmp-tbl"><thead><tr>{head}</tr></thead>'
+                    + f'<tbody>{body}</tbody></table>')
+            st.markdown(html, unsafe_allow_html=True)
         except Exception as _e_cmp:
             import traceback
             st.error(f"❌ Error al comparar: {_e_cmp}")
