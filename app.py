@@ -7266,13 +7266,12 @@ elif modulo == "🆚 Comparación Proyectos":
                     return f"{lab}: {abs(pct):.2f}%"
                 return f"{lab}: {pct:.2f}%"
 
+            _num_px = 62
+
             def _tabla_grupo_html(col_defs, filas, ventas, titulo):
-                ncols = len(col_defs)
-                lbl_w = 35
-                num_w = (100 - lbl_w) // ncols if ncols else 65
-                cg = f'<colgroup><col style="width:{lbl_w}%">'
+                cg = '<colgroup><col>'
                 for _ in col_defs:
-                    cg += f'<col style="width:{num_w}%">'
+                    cg += f'<col style="width:{_num_px}px">'
                 cg += '</colgroup>'
                 head = (f'<th class="lbl">{titulo}</th>'
                         + "".join(f"<th>{nm}</th>" for _s, nm in col_defs))
@@ -7299,29 +7298,30 @@ elif modulo == "🆚 Comparación Proyectos":
                         f'<th>B−A</th></tr></thead>'
                         f'<tbody>{body}</tbody></table>')
 
-            _cmp_css = """<style>
-              .cmp-wrap{width:100%;overflow:hidden;}
-              .cmp-row{display:flex;gap:4px;width:100%;}
-              .cmp-grp{flex:1;min-width:0;overflow:hidden;}
-              .cmp-dc{flex:0 0 70px;min-width:0;}
-              .cmp-tbl{border-collapse:collapse;font-size:11px;font-family:'Inter',sans-serif;
-                       line-height:1.15;table-layout:fixed;width:100%;}
-              .cmp-tbl th,.cmp-tbl td{padding:2px 4px;border-bottom:1px solid #eee;
-                                      overflow:hidden;text-overflow:ellipsis;}
-              .cmp-tbl thead th{background:#681E1E;color:#fff;text-align:right;
-                                font-weight:700;padding:3px 4px;white-space:normal;word-break:break-word;}
-              .cmp-tbl thead th.lbl{text-align:left;}
-              .cmp-tbl td.lbl{text-align:right;font-weight:500;color:#333;
-                              white-space:normal;word-break:break-word;}
-              .cmp-tbl td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
-              .cmp-tbl td.cons{background:#ececec;font-weight:700;}
-              .cmp-tbl tr.r-header td,.cmp-tbl tr.r-sub td,.cmp-tbl tr.r-res td{font-weight:700;}
-              .cmp-tbl tr.r-sub td{border-top:1px solid #b0b0b0;}
-              .cmp-tbl tr.r-ital td{font-style:italic;}
-              .cmp-tbl tr.r-subi td{color:#9a9a9a;font-style:italic;}
-              .cmp-tbl tr.r-neg td.num{color:#c0392b;}
-              .cmp-diff td.num.pos{color:#1F7A44;font-weight:700;}
-              .cmp-diff td.num.neg{color:#c0392b;font-weight:700;}
+            _cmp_css = f"""<style>
+              .cmp-wrap{{width:100%;overflow:hidden;}}
+              .cmp-row{{display:flex;gap:4px;width:100%;}}
+              .cmp-grp{{flex:1;min-width:0;overflow:hidden;}}
+              .cmp-dc{{flex:0 0 {_num_px}px;min-width:0;}}
+              .cmp-tbl{{border-collapse:collapse;font-size:13px;font-family:'Inter',sans-serif;
+                       line-height:1.2;table-layout:fixed;width:100%;}}
+              .cmp-tbl th,.cmp-tbl td{{padding:2px 3px;border-bottom:1px solid #eee;
+                                      overflow:hidden;text-overflow:ellipsis;}}
+              .cmp-tbl thead th{{background:#681E1E;color:#fff;text-align:right;
+                                font-weight:700;padding:3px 3px;white-space:normal;word-break:break-word;
+                                font-size:10px;}}
+              .cmp-tbl thead th.lbl{{text-align:left;font-size:11px;}}
+              .cmp-tbl td.lbl{{text-align:right;font-weight:500;color:#333;
+                              white-space:normal;word-break:break-word;}}
+              .cmp-tbl td.num{{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}}
+              .cmp-tbl td.cons{{background:#ececec;font-weight:700;}}
+              .cmp-tbl tr.r-header td,.cmp-tbl tr.r-sub td,.cmp-tbl tr.r-res td{{font-weight:700;}}
+              .cmp-tbl tr.r-sub td{{border-top:1px solid #b0b0b0;}}
+              .cmp-tbl tr.r-ital td{{font-style:italic;}}
+              .cmp-tbl tr.r-subi td{{color:#9a9a9a;font-style:italic;}}
+              .cmp-tbl tr.r-neg td.num{{color:#c0392b;}}
+              .cmp-diff td.num.pos{{color:#1F7A44;font-weight:700;}}
+              .cmp-diff td.num.neg{{color:#c0392b;font-weight:700;}}
             </style>"""
 
             _titA = " + ".join(grpA)
