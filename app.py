@@ -1220,8 +1220,8 @@ for _qp_key in ("pyg_open_inv_key", "pyg_open_inv_col",
 
 modulo = st.sidebar.radio(
     "Módulos",
-    ["📂 Cargar Base", "🔍 Auditoría", "📈 Reporte Inversionista",
-     "📊 Reporte Proyecto", "🆚 Comparación Proyectos", "💼 Flujo Proyecto (Control)"],
+    ["📂 Cargar Base", "📈 Reporte Inversionista",
+     "📊 Reporte Proyecto", "🆚 Comparación Proyectos"],
     label_visibility="collapsed",
     key="modulo_main_nav",
 )
