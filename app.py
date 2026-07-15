@@ -1220,7 +1220,7 @@ for _qp_key in ("pyg_open_inv_key", "pyg_open_inv_col",
 
 modulo = st.sidebar.radio(
     "Módulos",
-    ["📂 Base de Datos", "📈 Reporte Inversionista",
+    ["📂 Base de Datos",
      "📊 Reporte Proyecto", "🆚 Comparación Proyectos"],
     label_visibility="collapsed",
     key="modulo_main_nav",
@@ -1241,142 +1241,7 @@ st.sidebar.caption("IC Constructora SAS · v2.0 MVP")
 # MÓDULO 1 — CARGAR BASE
 # ═════════════════════════════════════════════
 
-if modulo == "📂 Base de Datos":
-    st.title("📂 Base de Datos")
-
-    if st.session_state.get("auto_load_error"):
-        st.error(f"❌ Error al cargar la base: {st.session_state['auto_load_error']}")
-
-    if not st.session_state.records:
-        st.warning("⚠️ La base no está cargada. Verifica que existan archivos Excel en la carpeta `data/` del repositorio.")
-        st.stop()
-
-    resp = st.session_state.upload_response
-    files_meta = st.session_state.get("files_processed", [])
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Archivos cargados", len(files_meta))
-    c2.metric("Registros Totales", f"{resp.total_registros:,}")
-    c3.metric("Proyectos", len(resp.proyectos))
-    c4.metric("Versiones de corte", sum(len(v) for v in resp.fechas_datos.values()))
-
-    if files_meta:
-        with st.expander(f"📑 Archivos cargados ({len(files_meta)})"):
-            df_files = pd.DataFrame(
-                [{"Archivo": n, "Modificado": ts.strftime("%Y-%m-%d %H:%M"),
-                  "Registros": cnt, "Proyectos": npr}
-                 for n, ts, cnt, npr in files_meta]
-            )
-            st.dataframe(df_files, use_container_width=True, hide_index=True)
-
-    if resp.warnings:
-        with st.expander(f"⚠️ Advertencias del parser ({len(resp.warnings)})"):
-            for w in resp.warnings:
-                st.caption(w)
-
-    st.subheader("Proyectos y Versiones Disponibles")
-    for proy in resp.proyectos:
-        fechas = resp.fechas_datos.get(proy, [])
-        with st.expander(f"📂 **{proy}** — {len(fechas)} versión(es)"):
-            df_vers = pd.DataFrame({"Versión": sorted(fechas, reverse=True)})
-            st.dataframe(df_vers, use_container_width=True, hide_index=True,
-                         height=min(35*len(fechas)+38, 400))
-
-
-# ═════════════════════════════════════════════
-# MÓDULO 2 — AUDITORÍA
-# ═════════════════════════════════════════════
-
-elif modulo == "🔍 Auditoría":
-    st.title("🔍 Módulo de Auditoría")
-    st.markdown("Ejecuta el motor de validación completo sobre el flujo de caja de un proyecto.")
-    st.divider()
-
-    if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
-        st.stop()
-
-    resp = st.session_state.upload_response
-    c1, c2 = st.columns(2)
-
-    with c1:
-        selected_proyecto = st.selectbox("Proyecto", resp.proyectos)
-
-    with c2:
-        fechas = resp.fechas_datos.get(selected_proyecto, [])
-        selected_fecha = st.selectbox("Fecha de Corte (Versión)", sorted(fechas, reverse=True))
-
-    if st.button("🚀 Ejecutar Validación Completa", type="primary"):
-        with st.spinner("Reconstruyendo modelo financiero y corriendo motor de reglas…"):
-            try:
-                fecha_obj, version_obj = parse_fecha_label(selected_fecha)
-                snapshot = builder.build(st.session_state.records, selected_proyecto, fecha_obj, version=version_obj)
-                reporte_crudo = engine.generate_report(snapshot, include_snapshot=True)
-                st.session_state.report = enriquecer_reporte(reporte_crudo)
-            except Exception as e:
-                import traceback
-                st.error(f"Error en validación: {e}")
-                st.code(traceback.format_exc())
-
-    if st.session_state.report:
-        rep = st.session_state.report
-        enc = rep["encabezado"]
-        res = rep["resumen_ejecutivo"]
-
-        color_class = (
-            "status-ok" if enc["estado"] == "OK"
-            else "status-warning" if enc["estado"] == "REVISAR"
-            else "status-critical"
-        )
-
-        col_a, col_b = st.columns([3, 1])
-        with col_a:
-            st.subheader(f"Diagnóstico Financiero: {enc['proyecto']}")
-            st.caption(f"Corte: {enc['fecha_datos']}")
-            st.info(f"📋 Dictamen: {res['narrativa']}")
-        with col_b:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Score Integridad</div>
-                <div class="metric-value {color_class}">{enc['score']}%</div>
-                <div class="{color_class}">{enc['estado']}</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.write("")
-        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("Reglas Aprobadas", f"{res['aprobadas']} / {res['total_validaciones']}")
-        kpi2.metric("Errores Críticos", res['errores_criticos'])
-        kpi3.metric("Advertencias", res['advertencias'])
-        kpi4.metric("Informativos", res['informativos'])
-
-        st.divider()
-        st.subheader(f"Detalle de Inconsistencias ({len(rep['hallazgos'])})")
-
-        if not rep['hallazgos']:
-            st.success("✅ ¡El flujo de caja no presenta ninguna inconsistencia bajo las reglas actuales!")
-
-        for h in rep['hallazgos']:
-            icon = "🔴" if h['severidad'] == "critico" else "🟠" if h['severidad'] == "advertencia" else "🔵"
-            with st.expander(f"{icon} {h['nombre']}  —  Líneas afectadas: {', '.join(h['lineas_afectadas'])}"):
-                st.write(f"**Descripción:** {h['descripcion']}")
-                if h['valor_esperado'] is not None or h['valor_observado'] is not None:
-                    cols_met = st.columns(3)
-                    cols_met[0].metric("Valor Observado", h['valor_observado'])
-                    cols_met[1].metric("Valor Esperado", h['valor_esperado'])
-                    cols_met[2].metric("Diferencia / Tolerancia", f"Δ {h['diferencia']}", f"Tol: {h['tolerancia']}")
-                st.markdown(f"**Diagnóstico de Analista:**\n> {h['explicacion_financiera']}")
-                if h.get('detalle_por_mes'):
-                    st.write("**Detalle mensual:**")
-                    df_meses = pd.DataFrame(list(h['detalle_por_mes'].items()), columns=["Mes", "Diferencia"])
-                    st.dataframe(df_meses.set_index("Mes").T, use_container_width=True)
-
-
-# ═════════════════════════════════════════════
-# MÓDULO 3 — REPORTE INVERSIONISTA
-# ═════════════════════════════════════════════
-
-elif modulo == "📈 Reporte Inversionista":
+def _render_reporte_inversionista():
     st.title("📈 Reporte Inversionista")
     st.markdown("Análisis financiero del retorno del inversionista sobre el flujo de caja del proyecto.")
     st.divider()
@@ -3920,6 +3785,141 @@ elif modulo == "📈 Reporte Inversionista":
                 st.code(traceback.format_exc())
 
 
+if modulo == "📂 Base de Datos":
+    st.title("📂 Base de Datos")
+
+    if st.session_state.get("auto_load_error"):
+        st.error(f"❌ Error al cargar la base: {st.session_state['auto_load_error']}")
+
+    if not st.session_state.records:
+        st.warning("⚠️ La base no está cargada. Verifica que existan archivos Excel en la carpeta `data/` del repositorio.")
+        st.stop()
+
+    resp = st.session_state.upload_response
+    files_meta = st.session_state.get("files_processed", [])
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Archivos cargados", len(files_meta))
+    c2.metric("Registros Totales", f"{resp.total_registros:,}")
+    c3.metric("Proyectos", len(resp.proyectos))
+    c4.metric("Versiones de corte", sum(len(v) for v in resp.fechas_datos.values()))
+
+    if files_meta:
+        with st.expander(f"📑 Archivos cargados ({len(files_meta)})"):
+            df_files = pd.DataFrame(
+                [{"Archivo": n, "Modificado": ts.strftime("%Y-%m-%d %H:%M"),
+                  "Registros": cnt, "Proyectos": npr}
+                 for n, ts, cnt, npr in files_meta]
+            )
+            st.dataframe(df_files, use_container_width=True, hide_index=True)
+
+    if resp.warnings:
+        with st.expander(f"⚠️ Advertencias del parser ({len(resp.warnings)})"):
+            for w in resp.warnings:
+                st.caption(w)
+
+    st.subheader("Proyectos y Versiones Disponibles")
+    for proy in resp.proyectos:
+        fechas = resp.fechas_datos.get(proy, [])
+        with st.expander(f"📂 **{proy}** — {len(fechas)} versión(es)"):
+            df_vers = pd.DataFrame({"Versión": sorted(fechas, reverse=True)})
+            st.dataframe(df_vers, use_container_width=True, hide_index=True,
+                         height=min(35*len(fechas)+38, 400))
+
+
+# ═════════════════════════════════════════════
+# MÓDULO 2 — AUDITORÍA
+# ═════════════════════════════════════════════
+
+elif modulo == "🔍 Auditoría":
+    st.title("🔍 Módulo de Auditoría")
+    st.markdown("Ejecuta el motor de validación completo sobre el flujo de caja de un proyecto.")
+    st.divider()
+
+    if not st.session_state.records:
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
+        st.stop()
+
+    resp = st.session_state.upload_response
+    c1, c2 = st.columns(2)
+
+    with c1:
+        selected_proyecto = st.selectbox("Proyecto", resp.proyectos)
+
+    with c2:
+        fechas = resp.fechas_datos.get(selected_proyecto, [])
+        selected_fecha = st.selectbox("Fecha de Corte (Versión)", sorted(fechas, reverse=True))
+
+    if st.button("🚀 Ejecutar Validación Completa", type="primary"):
+        with st.spinner("Reconstruyendo modelo financiero y corriendo motor de reglas…"):
+            try:
+                fecha_obj, version_obj = parse_fecha_label(selected_fecha)
+                snapshot = builder.build(st.session_state.records, selected_proyecto, fecha_obj, version=version_obj)
+                reporte_crudo = engine.generate_report(snapshot, include_snapshot=True)
+                st.session_state.report = enriquecer_reporte(reporte_crudo)
+            except Exception as e:
+                import traceback
+                st.error(f"Error en validación: {e}")
+                st.code(traceback.format_exc())
+
+    if st.session_state.report:
+        rep = st.session_state.report
+        enc = rep["encabezado"]
+        res = rep["resumen_ejecutivo"]
+
+        color_class = (
+            "status-ok" if enc["estado"] == "OK"
+            else "status-warning" if enc["estado"] == "REVISAR"
+            else "status-critical"
+        )
+
+        col_a, col_b = st.columns([3, 1])
+        with col_a:
+            st.subheader(f"Diagnóstico Financiero: {enc['proyecto']}")
+            st.caption(f"Corte: {enc['fecha_datos']}")
+            st.info(f"📋 Dictamen: {res['narrativa']}")
+        with col_b:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div class="metric-label">Score Integridad</div>
+                <div class="metric-value {color_class}">{enc['score']}%</div>
+                <div class="{color_class}">{enc['estado']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.write("")
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("Reglas Aprobadas", f"{res['aprobadas']} / {res['total_validaciones']}")
+        kpi2.metric("Errores Críticos", res['errores_criticos'])
+        kpi3.metric("Advertencias", res['advertencias'])
+        kpi4.metric("Informativos", res['informativos'])
+
+        st.divider()
+        st.subheader(f"Detalle de Inconsistencias ({len(rep['hallazgos'])})")
+
+        if not rep['hallazgos']:
+            st.success("✅ ¡El flujo de caja no presenta ninguna inconsistencia bajo las reglas actuales!")
+
+        for h in rep['hallazgos']:
+            icon = "🔴" if h['severidad'] == "critico" else "🟠" if h['severidad'] == "advertencia" else "🔵"
+            with st.expander(f"{icon} {h['nombre']}  —  Líneas afectadas: {', '.join(h['lineas_afectadas'])}"):
+                st.write(f"**Descripción:** {h['descripcion']}")
+                if h['valor_esperado'] is not None or h['valor_observado'] is not None:
+                    cols_met = st.columns(3)
+                    cols_met[0].metric("Valor Observado", h['valor_observado'])
+                    cols_met[1].metric("Valor Esperado", h['valor_esperado'])
+                    cols_met[2].metric("Diferencia / Tolerancia", f"Δ {h['diferencia']}", f"Tol: {h['tolerancia']}")
+                st.markdown(f"**Diagnóstico de Analista:**\n> {h['explicacion_financiera']}")
+                if h.get('detalle_por_mes'):
+                    st.write("**Detalle mensual:**")
+                    df_meses = pd.DataFrame(list(h['detalle_por_mes'].items()), columns=["Mes", "Diferencia"])
+                    st.dataframe(df_meses.set_index("Mes").T, use_container_width=True)
+
+
+# ═════════════════════════════════════════════
+# MÓDULO 3 — REPORTE INVERSIONISTA
+# ═════════════════════════════════════════════
+
 # ═════════════════════════════════════════════
 # MÓDULO 4 — FLUJO DE CAJA POR PROYECTO
 # ═════════════════════════════════════════════
@@ -4124,9 +4124,9 @@ elif modulo == "📊 Reporte Proyecto":
                 # ═══════════════════════════════════
                 # TAB LAYOUT
                 # ═══════════════════════════════════
-                tab_pyg, tab_kpi, tab_lote, tab_crono, tab_flujo, tab_acum = st.tabs([
-                    "💰 Factibilidad (P&G)", "📏 Indicadores", "🏞️ Forma de pago Lote",
-                    "📅 Cronograma", "📋 Flujo de Caja", "📈 Flujo Acumulado"
+                tab_pyg, tab_kpi, tab_inv, tab_lote, tab_crono, tab_flujo, tab_acum = st.tabs([
+                    "💰 Factibilidad (P&G)", "📏 Indicadores", "🧑\u200d💼 Inversionista",
+                    "🏞️ Forma de pago Lote", "📅 Cronograma", "📋 Flujo de Caja", "📈 Flujo Acumulado"
                 ])
 
                 # ───────────────────────────────────
@@ -5912,6 +5912,12 @@ elif modulo == "📊 Reporte Proyecto":
                             st.info("No se detectaron líneas de soporte en los snapshots.")
 
                 # ───────────────────────────────────
+                # TAB: INVERSIONISTA (embebe el antiguo modulo standalone)
+                # ───────────────────────────────────
+                with tab_inv:
+                    _render_reporte_inversionista()
+
+                # ───────────────────────────────────
                 # TAB: FORMA DE PAGO LOTE
                 # ───────────────────────────────────
                 with tab_lote:
@@ -6264,7 +6270,6 @@ elif modulo == "💼 Flujo Proyecto (Control)":
     # ── 2) Top-nav (reemplaza el sidebar en este módulo) ──
     _modulos_lst = [
         ("📂 Base de Datos", "📂"),
-        ("📈 Reporte Inversionista", "📈"),
         ("📊 Reporte Proyecto", "📊"),
         ("🆚 Comparación Proyectos", "🆚"),
     ]
