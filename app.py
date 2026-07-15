@@ -1241,51 +1241,11 @@ st.sidebar.caption("IC Constructora SAS · v2.0 MVP")
 # MÓDULO 1 — CARGAR BASE
 # ═════════════════════════════════════════════
 
-def _render_reporte_inversionista():
-    st.title("📈 Reporte Inversionista")
-    st.markdown("Análisis financiero del retorno del inversionista sobre el flujo de caja del proyecto.")
-    st.divider()
-
-    if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
-        st.stop()
-
-    def _reset_inv():
-        st.session_state.show_reporte_inversionista = False
-
-    resp = st.session_state.upload_response
-    c1, c2 = st.columns(2)
-    with c1:
-        inv_proyectos = st.multiselect("Proyectos", resp.proyectos, default=[resp.proyectos[0]], key="inv_proyectos", on_change=_reset_inv)
-    with c2:
-        if len(inv_proyectos) == 1:
-            fechas_inv = resp.fechas_datos.get(inv_proyectos[0], [])
-            inv_fecha = st.selectbox("Fecha de Corte", sorted(fechas_inv, reverse=True), key="inv_fecha", on_change=_reset_inv)
-        else:
-            st.info("Usando la última versión de cada proyecto.")
-            inv_fecha = None
-
-    if not inv_proyectos:
-        st.warning("Selecciona al menos un proyecto para continuar.")
-        st.stop()
-
-    if st.button("📊 Generar Reporte Inversionista", type="primary"):
-        st.session_state.show_reporte_inversionista = True
-
-    if st.session_state.get("show_reporte_inversionista", False):
-        with st.spinner("Reconstruyendo flujos y calculando indicadores del portafolio…"):
+def _render_reporte_inversionista(snapshots, fc_proyectos, fc_fecha):
+    st.subheader("📈 Reporte Inversionista")
+    with st.container():
+        with st.spinner("Calculando indicadores del portafolio…"):
             try:
-                snapshots = []
-                for p in inv_proyectos:
-                    if inv_fecha and len(inv_proyectos) == 1:
-                        f_obj, v_obj = parse_fecha_label(inv_fecha)
-                    else:
-                        fechas_p = resp.fechas_datos.get(p, [])
-                        ultima_f = sorted(fechas_p, reverse=True)[0]
-                        f_obj, v_obj = parse_fecha_label(ultima_f)
-
-                    snap = _build_snapshot(p, f_obj, v_obj)
-                    snapshots.append(snap)
 
                 # ── 1. HELPER DE EXTRACCIÓN MÚLTIPLE ──
                 def get_valores(snaps, indice_prefix, part=Participacion.IC):
@@ -1471,11 +1431,11 @@ def _render_reporte_inversionista():
                 tir_inv_base = xirr(flujo_inv, fechas_labels)
                 margen_op    = (utilidad / ventas_total * 100) if ventas_total != 0 else 0
 
-                if len(inv_proyectos) == 1:
-                    tit_proy = inv_proyectos[0]
-                    tit_fecha = inv_fecha
+                if len(fc_proyectos) == 1:
+                    tit_proy = fc_proyectos[0]
+                    tit_fecha = fc_fecha
                 else:
-                    tit_proy = f"Portafolio ({len(inv_proyectos)} proyectos)"
+                    tit_proy = f"Portafolio ({len(fc_proyectos)} proyectos)"
                     tit_fecha = "Últimas versiones"
 
                 st.subheader(f"Indicadores Clave — {tit_proy} | Corte: {tit_fecha}")
@@ -1509,7 +1469,7 @@ def _render_reporte_inversionista():
                 st.subheader("Flujo de Caja IC")
 
                 # Toggle "Consolidado / Por proyecto" solo si hay más de 1 proyecto
-                _multi_proj_inv = len(inv_proyectos) > 1
+                _multi_proj_inv = len(fc_proyectos) > 1
                 if _multi_proj_inv:
                     ctrl_view = st.columns([1.8, 5])
                     with ctrl_view[0]:
@@ -5915,7 +5875,7 @@ elif modulo == "📊 Reporte Proyecto":
                 # TAB: INVERSIONISTA (embebe el antiguo modulo standalone)
                 # ───────────────────────────────────
                 with tab_inv:
-                    _render_reporte_inversionista()
+                    _render_reporte_inversionista(snapshots, fc_proyectos, fc_fecha)
 
                 # ───────────────────────────────────
                 # TAB: FORMA DE PAGO LOTE
