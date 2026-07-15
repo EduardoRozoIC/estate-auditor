@@ -790,7 +790,7 @@ if st.session_state.records is None:
 # SIN AUTO-CARGA MANUAL — la base se carga al arrancar desde data/
 # ─────────────────────────────────────────────
 # Antes la app cargaba TODA la carpeta al abrir (muy lento). Ahora la lista
-# de archivos se muestra en el módulo "📂 Cargar Base" y el usuario decide
+# de archivos se muestra en el módulo "📂 Base de Datos" y el usuario decide
 # cuáles procesar — escaneo de carpeta es instantáneo (no parsea Excel).
 
 
@@ -1220,7 +1220,7 @@ for _qp_key in ("pyg_open_inv_key", "pyg_open_inv_col",
 
 modulo = st.sidebar.radio(
     "Módulos",
-    ["📂 Cargar Base", "📈 Reporte Inversionista",
+    ["📂 Base de Datos", "📈 Reporte Inversionista",
      "📊 Reporte Proyecto", "🆚 Comparación Proyectos"],
     label_visibility="collapsed",
     key="modulo_main_nav",
@@ -1241,7 +1241,7 @@ st.sidebar.caption("IC Constructora SAS · v2.0 MVP")
 # MÓDULO 1 — CARGAR BASE
 # ═════════════════════════════════════════════
 
-if modulo == "📂 Cargar Base":
+if modulo == "📂 Base de Datos":
     st.title("📂 Base de Datos")
 
     if st.session_state.get("auto_load_error"):
@@ -1293,7 +1293,7 @@ elif modulo == "🔍 Auditoría":
     st.divider()
 
     if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
     resp = st.session_state.upload_response
@@ -1382,7 +1382,7 @@ elif modulo == "📈 Reporte Inversionista":
     st.divider()
 
     if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
     def _reset_inv():
@@ -3930,7 +3930,7 @@ elif modulo == "📊 Reporte Proyecto":
     st.divider()
 
     if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
     def _reset_fc():
@@ -6263,12 +6263,10 @@ elif modulo == "💼 Flujo Proyecto (Control)":
 
     # ── 2) Top-nav (reemplaza el sidebar en este módulo) ──
     _modulos_lst = [
-        ("📂 Cargar Base", "📂"),
-        ("🔍 Auditoría", "🔍"),
+        ("📂 Base de Datos", "📂"),
         ("📈 Reporte Inversionista", "📈"),
         ("📊 Reporte Proyecto", "📊"),
         ("🆚 Comparación Proyectos", "🆚"),
-        ("💼 Flujo Proyecto (Control)", "💼"),
     ]
 
     def _switch_module(target):
@@ -6311,7 +6309,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
     )
 
     if not st.session_state.records:
-        st.warning("⚠️ Carga la base de datos en el módulo 📂 Cargar Base.")
+        st.warning("⚠️ Carga la base de datos en el módulo 📂 Base de Datos.")
         st.stop()
 
     resp = st.session_state.upload_response
@@ -7015,7 +7013,7 @@ elif modulo == "🆚 Comparación Proyectos":
     st.markdown("#### 🆚 Comparación de Proyectos")
 
     if not st.session_state.records:
-        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Cargar Base**.")
+        st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
     resp = st.session_state.upload_response
