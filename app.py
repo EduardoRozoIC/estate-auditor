@@ -1366,10 +1366,11 @@ if modulo == "📂 Cargar Base":
     if st.session_state.get("auto_load_ok") is True and st.session_state.records:
         n_files = len(st.session_state.get("files_processed", []))
         st.success(f"✅ Base cargada — {n_files} archivo(s), {st.session_state.upload_response.total_registros:,} registros.")
-    elif st.session_state.get("auto_load_error"):
+    if st.session_state.get("auto_load_error"):
         st.error(f"⚠️ Último intento falló:  \n`{st.session_state.get('auto_load_error')}`")
-        st.markdown("#### 📥 Subida manual (fallback)")
-        st.caption("Si la carpeta no está accesible, puedes subir manualmente uno o varios archivos.")
+    if not archivos_disponibles:
+        st.markdown("#### 📥 Subir archivos")
+        st.caption("Arrastra uno o varios archivos Excel de la base de datos.")
         uploaded_files = st.file_uploader(
             "Arrastra uno o varios archivos Excel BASE aquí:",
             type=["xlsx", "xls"],
