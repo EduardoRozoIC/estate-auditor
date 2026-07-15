@@ -19,9 +19,11 @@ from backend.models import Participacion
 from backend.folder_loader import load_database_from_folder, parse_fecha_label, list_database_files
 
 # ─── Ruta por defecto a la carpeta con la BASE de datos ───
-DEFAULT_DB_FOLDER = Path(
+_ONEDRIVE_FOLDER = Path(
     r"C:\Users\erozo\OneDrive - IC CONSTRUCTORA SAS\AA ESTRUCTURACION - ESTR - PROYECTOS\05. Consolidadores\3. DATABASE"
 )
+_REPO_DATA_FOLDER = Path(__file__).parent / "data"
+DEFAULT_DB_FOLDER = _ONEDRIVE_FOLDER if _ONEDRIVE_FOLDER.exists() else _REPO_DATA_FOLDER
 
 # ─────────────────────────────────────────────
 # CONFIGURACIÓN DE LA PÁGINA
@@ -759,16 +761,33 @@ def _set_manual(sig, key, value):
 
 _load_manual_ind()
 
-# Auto-restauración al arrancar: si no hay base en sesión pero existe una
-# guardada en disco, se restaura para que recargar la página no obligue a
-# reprocesar los Excel.
-if st.session_state.records is None and _BASE_CACHE_FILE.exists():
-    _ts_restore = _restore_base()
-    if _ts_restore is not None:
-        st.session_state["base_restored_at"] = _ts_restore
+# Auto-restauración: si no hay base en sesión, intentar (en orden):
+# 1) pkl guardado en disco (rápido, evita re-parsear)
+# 2) carpeta data/ del repo (nube: siempre disponible)
+if st.session_state.records is None:
+    if _BASE_CACHE_FILE.exists():
+        _ts_restore = _restore_base()
+        if _ts_restore is not None:
+            st.session_state["base_restored_at"] = _ts_restore
+    if st.session_state.records is None and _REPO_DATA_FOLDER.exists():
+        _repo_excels = [p for p in _REPO_DATA_FOLDER.iterdir()
+                        if p.suffix.lower() in (".xlsx", ".xls") and not p.name.startswith("~$")]
+        if _repo_excels:
+            try:
+                _recs, _resp, _meta = load_database_from_folder(
+                    _REPO_DATA_FOLDER, parse_fn=_parse_excel_cached)
+                st.session_state.records = _recs
+                st.session_state.upload_response = _resp
+                st.session_state.files_processed = _meta
+                st.session_state.auto_load_ok = True
+                st.session_state.auto_load_error = None
+                _nueva_firma_base()
+                _persist_base()
+            except Exception as _e_autoload:
+                st.session_state.auto_load_error = str(_e_autoload)
 
 # ─────────────────────────────────────────────
-# SIN AUTO-CARGA — el usuario elige qué archivos cargar
+# SIN AUTO-CARGA MANUAL — la base se carga al arrancar desde data/
 # ─────────────────────────────────────────────
 # Antes la app cargaba TODA la carpeta al abrir (muy lento). Ahora la lista
 # de archivos se muestra en el módulo "📂 Cargar Base" y el usuario decide
@@ -1223,254 +1242,45 @@ st.sidebar.caption("IC Constructora SAS · v2.0 MVP")
 # ═════════════════════════════════════════════
 
 if modulo == "📂 Cargar Base":
-    st.title("📂 Cargar Base de Datos")
-    st.markdown(
-        "Selecciona los archivos `.xlsx` que quieres procesar. "
-        "Cuando hay varios archivos para el mismo (proyecto, corte), las versiones "
-        "se etiquetan como `YYYY-MM-DD-1`, `YYYY-MM-DD-2`, … según la fecha de modificación."
-    )
+    st.title("📂 Base de Datos")
 
-    # ── Aviso de base restaurada desde caché (Fase 1.2) ──
-    if st.session_state.get("base_restored_at") is not None and st.session_state.records:
-        _ts = st.session_state["base_restored_at"]
-        _ts_str = _ts.strftime("%Y-%m-%d %H:%M") if hasattr(_ts, "strftime") else str(_ts)
-        _ci1, _ci2 = st.columns([4, 1])
-        with _ci1:
-            st.info(
-                f"♻️ Base restaurada automáticamente del último guardado "
-                f"(**{_ts_str}**). Para usar datos frescos, vuelve a cargar abajo."
-            )
-        with _ci2:
-            if st.button("🗑️ Limpiar caché", help="Borra la base guardada en disco."):
-                _clear_base_cache()
-                for _k in ("records", "upload_response", "files_processed",
-                           "auto_load_ok", "base_restored_at"):
-                    st.session_state.pop(_k, None)
-                st.session_state.records = None
-                st.rerun()
-
-    def _do_load(folder_path: Path, selected: Optional[list] = None):
-        """Carga la base desde la carpeta, filtrando archivos si selected != None."""
-        _pbar_ph = st.empty()
-        _status_ph = st.empty()
-        _pbar = _pbar_ph.progress(0, text="Inicializando…")
-
-        def _cb(done: int, total: int, current_name: str):
-            try:
-                pct = int(min(100, max(0, round((done / max(total, 1)) * 100))))
-                _pbar.progress(
-                    pct,
-                    text=(f"Procesando {min(done + 1, total)}/{total}: {current_name}"
-                          if done < total else f"Procesados {total}/{total}")
-                )
-                _status_ph.caption(f"📂 {done}/{total} archivos · {pct}%")
-            except Exception:
-                pass
-
-        try:
-            records, response, files_meta = load_database_from_folder(
-                folder_path, progress_callback=_cb, selected_filenames=selected,
-                parse_fn=_parse_excel_cached,
-            )
-            st.session_state.records = records
-            st.session_state.upload_response = response
-            st.session_state.files_processed = files_meta
-            st.session_state.report = None
-            st.session_state.auto_load_ok = True
-            st.session_state.auto_load_error = None
-            _nueva_firma_base()  # Fase 1.3 — invalidar memo de snapshots
-            _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
-            _pbar_ph.empty(); _status_ph.empty()
-            return True
-        except Exception as e:
-            _pbar_ph.empty(); _status_ph.empty()
-            st.session_state.auto_load_ok = False
-            st.session_state.auto_load_error = str(e)
-            return False
-
-    # ── Panel de selección de archivos ──
-    st.markdown(f"**Carpeta fuente:**  \n`{DEFAULT_DB_FOLDER}`")
-
-    # Listar archivos (rápido, sin parsear)
-    try:
-        archivos_disponibles = list_database_files(DEFAULT_DB_FOLDER)
-    except Exception as e:
-        archivos_disponibles = []
-        st.error(f"❌ No se pudo leer la carpeta: {e}")
-
-    if archivos_disponibles:
-        st.markdown(f"#### 📑 Archivos disponibles ({len(archivos_disponibles)})")
-        st.caption(
-            "Marca solo los que necesites. Cargar menos archivos = arranque mucho más rápido. "
-            "Los archivos están ordenados por **fecha de modificación** (más reciente primero)."
-        )
-
-        # Tabla informativa con tamaños y fechas
-        df_disp = pd.DataFrame(
-            [{"Archivo": n,
-              "Modificado": ts.strftime("%Y-%m-%d %H:%M"),
-              "Tamaño (MB)": round(sz / (1024 * 1024), 2)}
-             for n, ts, sz in archivos_disponibles]
-        )
-        st.dataframe(df_disp, use_container_width=True, hide_index=True,
-                     height=min(35 * len(archivos_disponibles) + 38, 320))
-
-        nombres_archivos = [n for n, _, _ in archivos_disponibles]
-
-        # Default: el más reciente seleccionado (1 archivo)
-        default_sel = [nombres_archivos[0]] if nombres_archivos else []
-
-        seleccion = st.multiselect(
-            "Selecciona los archivos a cargar:",
-            options=nombres_archivos,
-            default=default_sel,
-            key="files_to_load",
-            help="Por defecto se preselecciona el más reciente.",
-        )
-
-        b1, b2, b3, _ = st.columns([1.3, 1.3, 1.3, 3])
-        with b1:
-            cargar_sel = st.button(
-                f"📥 Cargar seleccionados ({len(seleccion)})",
-                type="primary",
-                disabled=(len(seleccion) == 0),
-                help="Procesa solo los archivos marcados arriba.",
-            )
-        with b2:
-            cargar_todos = st.button(
-                f"📦 Cargar TODOS ({len(nombres_archivos)})",
-                help="Procesa los " + str(len(nombres_archivos)) + " archivos. Puede tardar varios minutos.",
-            )
-        with b3:
-            if st.button("🔄 Refrescar lista", help="Vuelve a escanear la carpeta."):
-                st.rerun()
-
-        if cargar_sel and seleccion:
-            with st.spinner(f"Procesando {len(seleccion)} archivo(s)…"):
-                if _do_load(DEFAULT_DB_FOLDER, selected=seleccion):
-                    st.success(f"✅ {len(seleccion)} archivo(s) cargados")
-                    st.rerun()
-                else:
-                    st.error(f"❌ Error: {st.session_state.get('auto_load_error', '')}")
-
-        if cargar_todos:
-            with st.spinner(f"Procesando {len(nombres_archivos)} archivos (toma varios minutos)…"):
-                if _do_load(DEFAULT_DB_FOLDER, selected=None):
-                    st.success("✅ Base cargada completa")
-                    st.rerun()
-                else:
-                    st.error(f"❌ Error: {st.session_state.get('auto_load_error', '')}")
-
-    # ── Estado de carga ──
-    st.divider()
-    if st.session_state.get("auto_load_ok") is True and st.session_state.records:
-        n_files = len(st.session_state.get("files_processed", []))
-        st.success(f"✅ Base cargada — {n_files} archivo(s), {st.session_state.upload_response.total_registros:,} registros.")
     if st.session_state.get("auto_load_error"):
-        st.error(f"⚠️ Último intento falló:  \n`{st.session_state.get('auto_load_error')}`")
-    if not archivos_disponibles:
-        st.markdown("#### 📥 Subir archivos")
-        st.caption("Arrastra uno o varios archivos Excel de la base de datos.")
-        uploaded_files = st.file_uploader(
-            "Arrastra uno o varios archivos Excel BASE aquí:",
-            type=["xlsx", "xls"],
-            accept_multiple_files=True,
-            key="fallback_uploader",
-        )
-        if uploaded_files and st.button("⚙️ Procesar archivos manuales", type="primary"):
-            with st.spinner("Procesando archivos manuales…"):
-                try:
-                    # Reusar la lógica de versionado: replicar load_database_from_folder en memoria.
-                    from datetime import datetime as _dt
-                    all_records = []
-                    all_warnings = []
-                    files_meta = []
-                    version_counter = {}
-                    # Ordenar por nombre como proxy (no hay mtime para uploaded files)
-                    for uf in sorted(uploaded_files, key=lambda x: x.name):
-                        try:
-                            records, response = _parse_excel_cached(uf.getvalue())
-                        except Exception as e:
-                            all_warnings.append(f"❌ Error procesando '{uf.name}': {e}")
-                            continue
-                        for w in response.warnings:
-                            all_warnings.append(f"[{uf.name}] {w}")
-                        keys = {(r.proyecto, r.fecha_datos) for r in records}
-                        version_asignada = {}
-                        for k in keys:
-                            actual = version_counter.get(k, 0)
-                            version_asignada[k] = actual + 1
-                            version_counter[k] = actual + 1
-                        for r in records:
-                            r.version = version_asignada[(r.proyecto, r.fecha_datos)]
-                        all_records.extend(records)
-                        files_meta.append((uf.name, _dt.now(), len(records), len({r.proyecto for r in records})))
+        st.error(f"❌ Error al cargar la base: {st.session_state['auto_load_error']}")
 
-                    if not all_records:
-                        st.error("No se extrajo ningún registro válido de los archivos.")
-                    else:
-                        # Construir UploadResponse
-                        from backend.models import UploadResponse as _UR
-                        from backend.folder_loader import make_fecha_label
-                        proyectos_labels = {}
-                        for r in all_records:
-                            proyectos_labels.setdefault(r.proyecto, set())
-                            max_v = version_counter[(r.proyecto, r.fecha_datos)]
-                            proyectos_labels[r.proyecto].add(
-                                make_fecha_label(r.fecha_datos, r.version, max_v)
-                            )
-                        fpp = {p: sorted(list(l)) for p, l in proyectos_labels.items()}
-                        resp = _UR(
-                            proyectos=sorted(list(proyectos_labels.keys())),
-                            fechas_datos=fpp,
-                            total_registros=len(all_records),
-                            warnings=all_warnings,
-                        )
-                        st.session_state.records = all_records
-                        st.session_state.upload_response = resp
-                        st.session_state.files_processed = files_meta
-                        st.session_state.report = None
-                        st.session_state.auto_load_ok = True
-                        _nueva_firma_base()  # Fase 1.3 — invalidar memo de snapshots
-                        _persist_base()  # Fase 1.2 — guardar para restaurar tras recargar
-                        st.success(f"✅ {len(files_meta)} archivo(s) procesado(s) · {len(all_records):,} registros")
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Error procesando archivos manuales: {e}")
+    if not st.session_state.records:
+        st.warning("⚠️ La base no está cargada. Verifica que existan archivos Excel en la carpeta `data/` del repositorio.")
+        st.stop()
 
-    # ── Métricas y detalle ──
-    if st.session_state.upload_response:
-        st.divider()
-        resp = st.session_state.upload_response
-        files_meta = st.session_state.get("files_processed", [])
+    resp = st.session_state.upload_response
+    files_meta = st.session_state.get("files_processed", [])
 
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Archivos cargados", len(files_meta))
-        c2.metric("Registros Totales", f"{resp.total_registros:,}")
-        c3.metric("Proyectos", len(resp.proyectos))
-        c4.metric("Versiones de corte", sum(len(v) for v in resp.fechas_datos.values()))
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Archivos cargados", len(files_meta))
+    c2.metric("Registros Totales", f"{resp.total_registros:,}")
+    c3.metric("Proyectos", len(resp.proyectos))
+    c4.metric("Versiones de corte", sum(len(v) for v in resp.fechas_datos.values()))
 
-        if files_meta:
-            with st.expander(f"📑 Archivos procesados ({len(files_meta)})"):
-                df_files = pd.DataFrame(
-                    [{"Archivo": n, "Modificado": ts.strftime("%Y-%m-%d %H:%M"),
-                      "Registros": cnt, "Proyectos": npr}
-                     for n, ts, cnt, npr in files_meta]
-                )
-                st.dataframe(df_files, use_container_width=True, hide_index=True)
+    if files_meta:
+        with st.expander(f"📑 Archivos cargados ({len(files_meta)})"):
+            df_files = pd.DataFrame(
+                [{"Archivo": n, "Modificado": ts.strftime("%Y-%m-%d %H:%M"),
+                  "Registros": cnt, "Proyectos": npr}
+                 for n, ts, cnt, npr in files_meta]
+            )
+            st.dataframe(df_files, use_container_width=True, hide_index=True)
 
-        if resp.warnings:
-            with st.expander(f"⚠️ Advertencias del parser ({len(resp.warnings)})"):
-                for w in resp.warnings:
-                    st.caption(w)
+    if resp.warnings:
+        with st.expander(f"⚠️ Advertencias del parser ({len(resp.warnings)})"):
+            for w in resp.warnings:
+                st.caption(w)
 
-        st.subheader("Proyectos y Versiones Disponibles")
-        for proy in resp.proyectos:
-            fechas = resp.fechas_datos.get(proy, [])
-            with st.expander(f"📂 **{proy}** — {len(fechas)} versión(es)"):
-                # Sufijo -N indica sub-versión del mismo mes
-                df_vers = pd.DataFrame({"Versión": sorted(fechas, reverse=True)})
-                st.dataframe(df_vers, use_container_width=True, hide_index=True, height=min(35*len(fechas)+38, 400))
+    st.subheader("Proyectos y Versiones Disponibles")
+    for proy in resp.proyectos:
+        fechas = resp.fechas_datos.get(proy, [])
+        with st.expander(f"📂 **{proy}** — {len(fechas)} versión(es)"):
+            df_vers = pd.DataFrame({"Versión": sorted(fechas, reverse=True)})
+            st.dataframe(df_vers, use_container_width=True, hide_index=True,
+                         height=min(35*len(fechas)+38, 400))
 
 
 # ═════════════════════════════════════════════

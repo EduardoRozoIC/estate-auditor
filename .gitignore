@@ -17,10 +17,13 @@ dist/
 *.pkl
 *.parquet
 
-# ── Datos fuente (no versionar Excel pesados) ──
+# ── Datos fuente (no versionar Excel fuera de data/) ──
 *.xlsx
 *.xls
 ~$*
+# Excepción: los Excel en data/ SÍ se versionan (base de la app en la nube)
+!data/*.xlsx
+!data/*.xls
 
 # ── Sistema operativo / editores ──
 Thumbs.db
