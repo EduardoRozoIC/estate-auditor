@@ -1233,6 +1233,11 @@ if st.session_state.records:
 else:
     st.sidebar.warning("⚠️ Sin base cargada")
 
+st.sidebar.markdown(
+    '<a href="https://huggingface.co/spaces/CGIRALDO/ori19" target="_blank">ORIGINACIÓN</a>',
+    unsafe_allow_html=True,
+)
+
 st.sidebar.markdown("---")
 st.sidebar.caption("IC Constructora SAS · v2.0 MVP")
 
