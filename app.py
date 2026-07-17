@@ -665,6 +665,35 @@ def _parse_excel_cached(file_bytes: bytes):
 
 _CACHE_DIR = Path(__file__).parent / ".cache"
 _BASE_CACHE_FILE = _CACHE_DIR / "last_base.pkl"
+_BASE_SIG_FILE = _CACHE_DIR / "last_base_sig.pkl"
+
+def _repo_data_signature():
+    """Firma ligera (nombre+tamaño+mtime) de los Excel en data/ para detectar
+    si cambiaron desde la última vez que se persistió la base en disco."""
+    if not _REPO_DATA_FOLDER.exists():
+        return None
+    try:
+        files = sorted(
+            p for p in _REPO_DATA_FOLDER.iterdir()
+            if p.suffix.lower() in (".xlsx", ".xls") and not p.name.startswith("~$")
+        )
+        return tuple((p.name, p.stat().st_size, int(p.stat().st_mtime)) for p in files)
+    except Exception:
+        return None
+
+def _cached_base_is_fresh():
+    """True si el pkl guardado en disco corresponde a los archivos actuales de
+    data/ (evita servir una base vieja tras reemplazar el Excel en el repo)."""
+    import pickle
+    current_sig = _repo_data_signature()
+    if current_sig is None:
+        return True  # sin carpeta data/ -> no se puede validar, confiar en la caché
+    try:
+        with open(_BASE_SIG_FILE, "rb") as f:
+            saved_sig = pickle.load(f)
+        return saved_sig == current_sig
+    except Exception:
+        return False  # sin firma guardada -> tratar como potencialmente obsoleta
 
 def _persist_base():
     """Guarda la base actual (records + response + meta) en disco."""
@@ -678,6 +707,8 @@ def _persist_base():
                 "files_processed": st.session_state.get("files_processed", []),
                 "saved_at": datetime.now(),
             }, f)
+        with open(_BASE_SIG_FILE, "wb") as f:
+            pickle.dump(_repo_data_signature(), f)
     except Exception:
         pass  # la persistencia es best-effort; nunca debe tumbar la app
 
@@ -765,7 +796,7 @@ _load_manual_ind()
 # 1) pkl guardado en disco (rápido, evita re-parsear)
 # 2) carpeta data/ del repo (nube: siempre disponible)
 if st.session_state.records is None:
-    if _BASE_CACHE_FILE.exists():
+    if _BASE_CACHE_FILE.exists() and _cached_base_is_fresh():
         _ts_restore = _restore_base()
         if _ts_restore is not None:
             st.session_state["base_restored_at"] = _ts_restore
