@@ -1209,7 +1209,7 @@ logo_path = Path(__file__).parent / "LOGO IC 2026.png"
 if logo_path.exists():
     st.sidebar.image(str(logo_path), width=160)
 
-st.sidebar.title("Estate Auditor")
+st.sidebar.title("Estructuración")
 st.sidebar.markdown("---")
 
 # Limpiar query params residuales de iteraciones anteriores (legacy)
@@ -1234,7 +1234,8 @@ else:
     st.sidebar.warning("⚠️ Sin base cargada")
 
 st.sidebar.markdown(
-    '<a href="https://huggingface.co/spaces/CGIRALDO/ori19" target="_blank">ORIGINACIÓN</a>',
+    '<a href="https://huggingface.co/spaces/CGIRALDO/ori19" target="_blank" '
+    'style="font-size:1.5em;color:#681E1E;font-weight:700;">ORIGINACIÓN</a>',
     unsafe_allow_html=True,
 )
 
