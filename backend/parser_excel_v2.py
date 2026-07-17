@@ -279,105 +279,99 @@ class ExcelBaseParser:
         col_map: Dict[str, str]
     ) -> List[BaseRecord]:
         """
-        Itera fila a fila y construye BaseRecord, descartando filas inválidas con warning.
+        Construye BaseRecord a partir del DataFrame usando operaciones vectorizadas
+        de pandas (en vez de iterrows fila-a-fila) — crítico para archivos con
+        cientos de miles de filas, donde iterrows es órdenes de magnitud más lento.
+        Descarta filas inválidas con warning agregado (no uno por fila).
         """
-        records: List[BaseRecord] = []
-        skipped = 0
+        n_total = len(df)
 
-        for idx, row in df.iterrows():
-            # ── Proyecto ──
-            proyecto_raw = row[col_map["proyecto"]]
-            if pd.isna(proyecto_raw) or str(proyecto_raw).strip() == "":
-                skipped += 1
-                continue
-            # Normalización: colapsa espacios múltiples a uno solo
-            # (corrige duplicados como "Bosque Central  Vivienda" vs "Bosque Central Vivienda")
-            proyecto = re.sub(r"\s+", " ", str(proyecto_raw).strip())
+        # ── Proyecto: strip + colapsar espacios múltiples ──
+        proyecto_s = df[col_map["proyecto"]].astype(str).str.strip()
+        proyecto_s = proyecto_s.str.replace(r"\s+", " ", regex=True)
+        mask_proyecto = df[col_map["proyecto"]].notna() & (proyecto_s != "") & (proyecto_s.str.lower() != "nan")
 
-            # ── Fecha Datos ──
-            fecha_datos = _try_parse_date(row[col_map["fecha_datos"]])
-            if fecha_datos is None:
-                self._warnings.append(
-                    f"Fila {idx + 2}: 'fecha_datos' inválida "
-                    f"('{row[col_map['fecha_datos']]}') — omitida"
-                )
-                skipped += 1
-                continue
+        # ── Fechas: parseo vectorizado (Excel ya entrega datetime en la mayoría de casos) ──
+        fecha_datos_s = pd.to_datetime(df[col_map["fecha_datos"]], errors="coerce", dayfirst=False)
+        mask_fecha_datos = fecha_datos_s.notna()
 
-            # ── Fecha Flujo ──
-            fecha_flujo = _try_parse_date(row[col_map["fecha_flujo"]])
-            if fecha_flujo is None:
-                self._warnings.append(
-                    f"Fila {idx + 2}: 'fecha_flujo' inválida "
-                    f"('{row[col_map['fecha_flujo']]}') — omitida"
-                )
-                skipped += 1
-                continue
+        fecha_flujo_s = pd.to_datetime(df[col_map["fecha_flujo"]], errors="coerce", dayfirst=False)
+        mask_fecha_flujo = fecha_flujo_s.notna()
 
-            # ── Índice y Nombre ──
-            indice_raw = row[col_map["indice"]]
-            if pd.isna(indice_raw) or str(indice_raw).strip() == "":
-                skipped += 1
-                continue
-            
-            raw_indice_str = str(indice_raw).strip()
-            
-            if col_map.get("nombre_linea"):
-                nombre_raw = row.get(col_map["nombre_linea"], "")
-                nombre_linea = str(nombre_raw).strip() if not pd.isna(nombre_raw) else ""
-                indice = _normalize_indice(raw_indice_str)
-            else:
-                # Separar el indice de la descripcion en la columna P&G
-                parts = raw_indice_str.split(" ", 1)
-                indice = _normalize_indice(parts[0])
-                nombre_linea = parts[1].strip() if len(parts) > 1 else raw_indice_str
+        # ── Índice y Nombre ──
+        indice_raw_s = df[col_map["indice"]].astype(str).str.strip()
+        mask_indice = df[col_map["indice"]].notna() & (indice_raw_s != "") & (indice_raw_s.str.lower() != "nan")
 
-            # ── Participación ──
-            part_raw = str(row[col_map["participacion"]]).strip().lower()
-            participacion_str = VALID_PARTICIPACION_VALUES.get(part_raw)
-            if participacion_str is None:
-                participacion_str = "total"  # Fallback seguro para fondos
-                
-            try:
-                participacion = Participacion(participacion_str)
-            except ValueError:
-                skipped += 1
-                continue
+        if col_map.get("nombre_linea"):
+            nombre_col = df[col_map["nombre_linea"]]
+            nombre_linea_s = nombre_col.astype(str).str.strip()
+            nombre_linea_s = nombre_linea_s.where(nombre_col.notna(), "")
+            # Normalizar índice: forzar punto decimal si el patrón lo sugiere
+            _comma_pattern = indice_raw_s.str.match(r"^\d+[,\.]\d")
+            indice_s = indice_raw_s.where(~_comma_pattern, indice_raw_s.str.replace(",", ".", regex=False))
+        else:
+            # Separar "<indice> <descripcion>" (columna combinada tipo "P&G")
+            split_parts = indice_raw_s.str.split(" ", n=1, expand=True)
+            indice_part = split_parts[0]
+            nombre_part = split_parts[1] if split_parts.shape[1] > 1 else pd.Series([None] * n_total, index=df.index)
+            nombre_linea_s = nombre_part.where(nombre_part.notna(), indice_raw_s).str.strip()
+            _comma_pattern = indice_part.str.match(r"^\d+[,\.]\d")
+            indice_s = indice_part.where(~_comma_pattern, indice_part.str.replace(",", ".", regex=False))
 
-            # ── Valor ──
-            valor_raw = row[col_map["valor"]]
-            if pd.isna(valor_raw):
-                valor = 0.0
-            else:
-                try:
-                    valor = float(valor_raw)
-                except (ValueError, TypeError):
-                    self._warnings.append(
-                        f"Fila {idx + 2}: valor no numérico '{valor_raw}' → se asigna 0"
-                    )
-                    valor = 0.0
+        # ── Participación ──
+        part_raw_s = df[col_map["participacion"]].astype(str).str.strip().str.lower()
+        participacion_s = part_raw_s.map(VALID_PARTICIPACION_VALUES).fillna("total")
 
-            # ── Fuente (opcional) ──
-            fuente_str = "desconocida"
-            if col_map.get("fuente"):
-                fuente_raw = row.get(col_map["fuente"], "")
-                if not pd.isna(fuente_raw):
-                    fuente_str = str(fuente_raw).strip() or "desconocida"
+        # ── Valor ──
+        valor_orig = df[col_map["valor"]]
+        valor_num_s = pd.to_numeric(valor_orig, errors="coerce")
+        mask_valor_invalido = valor_num_s.isna() & valor_orig.notna()
+        n_valor_invalido = int(mask_valor_invalido.sum())
+        valor_s = valor_num_s.fillna(0.0)
 
-            records.append(BaseRecord(
-                proyecto=proyecto,
-                fecha_datos=fecha_datos,
-                fecha_flujo=fecha_flujo,
-                indice=indice,
-                nombre_linea=nombre_linea,
-                participacion=participacion,
-                valor=valor,
-                fuente=fuente_str,
-            ))
+        # ── Fuente (opcional) ──
+        if col_map.get("fuente"):
+            fuente_col = df[col_map["fuente"]]
+            fuente_s = fuente_col.astype(str).str.strip()
+            fuente_s = fuente_s.where(fuente_col.notna() & (fuente_s != ""), "desconocida")
+        else:
+            fuente_s = pd.Series(["desconocida"] * n_total, index=df.index)
 
-        if skipped > 0:
+        # ── Máscara final de filas válidas ──
+        mask_valida = mask_proyecto & mask_fecha_datos & mask_fecha_flujo & mask_indice
+        n_skipped = n_total - int(mask_valida.sum())
+
+        # Filtrar todas las series a las filas válidas, en el mismo orden
+        proyecto_f = proyecto_s[mask_valida].to_numpy()
+        fecha_datos_f = fecha_datos_s[mask_valida].dt.date.to_numpy()
+        fecha_flujo_f = fecha_flujo_s[mask_valida].dt.date.to_numpy()
+        indice_f = indice_s[mask_valida].to_numpy()
+        nombre_linea_f = nombre_linea_s[mask_valida].to_numpy()
+        participacion_f = participacion_s[mask_valida].to_numpy()
+        valor_f = valor_s[mask_valida].to_numpy()
+        fuente_f = fuente_s[mask_valida].to_numpy()
+
+        records: List[BaseRecord] = [
+            BaseRecord(
+                proyecto=proyecto_f[i],
+                fecha_datos=fecha_datos_f[i],
+                fecha_flujo=fecha_flujo_f[i],
+                indice=indice_f[i],
+                nombre_linea=nombre_linea_f[i],
+                participacion=Participacion(participacion_f[i]),
+                valor=float(valor_f[i]),
+                fuente=fuente_f[i],
+            )
+            for i in range(len(proyecto_f))
+        ]
+
+        if n_skipped > 0:
             self._warnings.append(
-                f"Total de filas omitidas durante el parsing: {skipped}"
+                f"Total de filas omitidas durante el parsing: {n_skipped}"
+            )
+        if n_valor_invalido > 0:
+            self._warnings.append(
+                f"Filas con valor no numérico (se asignó 0): {n_valor_invalido}"
             )
 
         return records
