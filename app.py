@@ -15,8 +15,9 @@ from backend.parser_excel_v2 import parse_base_excel
 from backend.table_builder import TableBuilder
 from backend.validation_engine import ValidationEngine
 from backend.report_generator import enriquecer_reporte
-from backend.models import Participacion
-from backend.folder_loader import load_database_from_folder, parse_fecha_label, list_database_files
+from backend.models import Participacion, BaseRecord, UploadResponse
+from backend.folder_loader import load_database_from_folder, parse_fecha_label, list_database_files, make_fecha_label
+from backend.parser_excel_v2 import parse_base_excel_df
 
 # ─── Ruta por defecto a la carpeta con la BASE de datos ───
 _ONEDRIVE_FOLDER = Path(
@@ -748,14 +749,117 @@ def _nueva_firma_base():
     st.session_state["base_sig"] = datetime.now().isoformat()
     st.session_state["_snap_memo"] = {}
 
+# ── Base de datos COMPARTIDA entre todas las sesiones (una sola copia en RAM) ──
+# Antes la base se materializaba como ~1M objetos Pydantic por sesión → reventaba
+# el límite de RAM de Streamlit Cloud (OOM) con un solo usuario, y peor con varios.
+# Ahora se carga UNA vez como DataFrame compacto (categorías) vía cache_resource,
+# compartido por todos los usuarios. Cada snapshot materializa SOLO las filas de
+# un (proyecto, corte) puntual — unos pocos miles de filas — bajo demanda.
+
+@st.cache_resource(show_spinner="Cargando base de datos…")
+def _load_shared_base():
+    """Lee todos los Excel de data/ en un único DataFrame compartido.
+    Devuelve (df, UploadResponse, files_meta) o (None, None, []) si no hay datos."""
+    if not _REPO_DATA_FOLDER.exists():
+        return None, None, []
+    files = sorted(
+        [p for p in _REPO_DATA_FOLDER.iterdir()
+         if p.suffix.lower() in (".xlsx", ".xls") and not p.name.startswith("~$")],
+        key=lambda p: p.stat().st_mtime,
+    )
+    if not files:
+        return None, None, []
+
+    dfs = []
+    warnings = []
+    files_meta = []
+    version_counter = {}
+    for p in files:
+        with open(p, "rb") as f:
+            _b = f.read()
+        df, w, e = parse_base_excel_df(_b)
+        if e:
+            warnings.append(f"[{p.name}] {'; '.join(e)}")
+            continue
+        for wi in w:
+            warnings.append(f"[{p.name}] {wi}")
+        # Asignar versión por (proyecto, fecha_datos) acumulando entre archivos
+        keys = df[["proyecto", "fecha_datos"]].drop_duplicates()
+        vmap = {}
+        for pr, fd in zip(keys["proyecto"], keys["fecha_datos"]):
+            v = version_counter.get((pr, fd), 0) + 1
+            version_counter[(pr, fd)] = v
+            vmap[(pr, fd)] = v
+        df["version"] = [vmap[(pr, fd)] for pr, fd in zip(df["proyecto"], df["fecha_datos"])]
+        dfs.append(df)
+        files_meta.append((p.name, datetime.fromtimestamp(p.stat().st_mtime),
+                           len(df), df["proyecto"].nunique()))
+
+    if not dfs:
+        return None, None, []
+
+    full = pd.concat(dfs, ignore_index=True)
+    # Optimizar memoria: columnas de texto repetitivo como categorías
+    for _c in ("proyecto", "indice", "nombre_linea", "participacion", "fuente"):
+        full[_c] = full[_c].astype("category")
+    full["version"] = pd.to_numeric(full["version"], downcast="unsigned")
+
+    # Catálogo proyecto → etiquetas de corte (con sufijo -N si hay sub-versiones)
+    trip = full[["proyecto", "fecha_datos", "version"]].drop_duplicates().copy()
+    trip["maxv"] = trip.groupby(["proyecto", "fecha_datos"])["version"].transform("max")
+    proyectos_labels = {}
+    for r in trip.itertuples(index=False):
+        label = make_fecha_label(r.fecha_datos, int(r.version), int(r.maxv))
+        proyectos_labels.setdefault(str(r.proyecto), set()).add(label)
+    fechas_por_proyecto = {p: sorted(list(s)) for p, s in proyectos_labels.items()}
+    response = UploadResponse(
+        proyectos=sorted(proyectos_labels.keys()),
+        fechas_datos=fechas_por_proyecto,
+        total_registros=len(full),
+        warnings=warnings,
+    )
+    return full, response, files_meta
+
+def _hay_base():
+    return _load_shared_base()[0] is not None
+
+def _get_base_df():
+    return _load_shared_base()[0]
+
+def _records_subset(proyecto, fecha_obj, version):
+    """Materializa SOLO las filas de un (proyecto, corte, versión) como BaseRecord,
+    para alimentar builder.build sin cargar toda la base en objetos."""
+    df = _get_base_df()
+    if df is None:
+        return []
+    mask = ((df["proyecto"] == proyecto)
+            & (df["fecha_datos"] == fecha_obj)
+            & (df["version"] == version))
+    sub = df[mask]
+    return [
+        BaseRecord(
+            proyecto=str(r.proyecto),
+            fecha_datos=r.fecha_datos,
+            fecha_flujo=r.fecha_flujo,
+            indice=str(r.indice),
+            nombre_linea=str(r.nombre_linea),
+            participacion=Participacion(str(r.participacion)),
+            valor=float(r.valor),
+            version=int(r.version),
+            fuente=str(r.fuente),
+        )
+        for r in sub.itertuples(index=False)
+    ]
+
 def _build_snapshot(proyecto, fecha_obj, version):
-    """Versión memoizada de builder.build sobre la base en sesión."""
+    """Versión memoizada de builder.build sobre la base compartida."""
     sig = st.session_state.get("base_sig", "none")
     memo = st.session_state.setdefault("_snap_memo", {})
     key = (sig, proyecto, fecha_obj.isoformat(), version)
     snap = memo.get(key)
     if snap is None:
-        snap = builder.build(st.session_state.records, proyecto, fecha_obj, version=version)
+        snap = builder.build(_records_subset(proyecto, fecha_obj, version),
+                             proyecto, fecha_obj, version=version)
         memo[key] = snap
     return snap
 
@@ -792,30 +896,26 @@ def _set_manual(sig, key, value):
 
 _load_manual_ind()
 
-# Auto-restauración: si no hay base en sesión, intentar (en orden):
-# 1) pkl guardado en disco (rápido, evita re-parsear)
-# 2) carpeta data/ del repo (nube: siempre disponible)
-if st.session_state.records is None:
-    if _BASE_CACHE_FILE.exists() and _cached_base_is_fresh():
-        _ts_restore = _restore_base()
-        if _ts_restore is not None:
-            st.session_state["base_restored_at"] = _ts_restore
-    if st.session_state.records is None and _REPO_DATA_FOLDER.exists():
-        _repo_excels = [p for p in _REPO_DATA_FOLDER.iterdir()
-                        if p.suffix.lower() in (".xlsx", ".xls") and not p.name.startswith("~$")]
-        if _repo_excels:
-            try:
-                _recs, _resp, _meta = load_database_from_folder(
-                    _REPO_DATA_FOLDER, parse_fn=_parse_excel_cached)
-                st.session_state.records = _recs
-                st.session_state.upload_response = _resp
-                st.session_state.files_processed = _meta
-                st.session_state.auto_load_ok = True
-                st.session_state.auto_load_error = None
-                _nueva_firma_base()
-                _persist_base()
-            except Exception as _e_autoload:
-                st.session_state.auto_load_error = str(_e_autoload)
+# Carga de la base compartida (cache_resource): una sola vez por proceso,
+# compartida entre todas las sesiones. Solo se publican en session_state el
+# catálogo (liviano) y metadatos — nunca la tabla completa.
+try:
+    _shared_df, _shared_resp, _shared_meta = _load_shared_base()
+    if _shared_df is not None:
+        st.session_state.upload_response = _shared_resp
+        st.session_state.files_processed = _shared_meta
+        st.session_state.auto_load_ok = True
+        st.session_state.auto_load_error = None
+        if "base_sig" not in st.session_state:
+            _nueva_firma_base()
+    else:
+        st.session_state.auto_load_ok = False
+        st.session_state.auto_load_error = (
+            "No se encontraron archivos Excel en la carpeta data/ del repositorio."
+        )
+except Exception as _e_autoload:
+    st.session_state.auto_load_ok = False
+    st.session_state.auto_load_error = str(_e_autoload)
 
 # ─────────────────────────────────────────────
 # SIN AUTO-CARGA MANUAL — la base se carga al arrancar desde data/
@@ -1258,7 +1358,7 @@ modulo = st.sidebar.radio(
 )
 
 # Indicador de estado de la base
-if st.session_state.records:
+if _hay_base():
     resp = st.session_state.upload_response
     st.sidebar.success(f"✅ Base cargada\n{resp.total_registros:,} registros · {len(resp.proyectos)} proyecto(s)")
 else:
@@ -3788,7 +3888,7 @@ if modulo == "📂 Base de Datos":
     if st.session_state.get("auto_load_error"):
         st.error(f"❌ Error al cargar la base: {st.session_state['auto_load_error']}")
 
-    if not st.session_state.records:
+    if not _hay_base():
         st.warning("⚠️ La base no está cargada. Verifica que existan archivos Excel en la carpeta `data/` del repositorio.")
         st.stop()
 
@@ -3833,7 +3933,7 @@ elif modulo == "🔍 Auditoría":
     st.markdown("Ejecuta el motor de validación completo sobre el flujo de caja de un proyecto.")
     st.divider()
 
-    if not st.session_state.records:
+    if not _hay_base():
         st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
@@ -3851,7 +3951,7 @@ elif modulo == "🔍 Auditoría":
         with st.spinner("Reconstruyendo modelo financiero y corriendo motor de reglas…"):
             try:
                 fecha_obj, version_obj = parse_fecha_label(selected_fecha)
-                snapshot = builder.build(st.session_state.records, selected_proyecto, fecha_obj, version=version_obj)
+                snapshot = builder.build(_records_subset(selected_proyecto, fecha_obj, version_obj), selected_proyecto, fecha_obj, version=version_obj)
                 reporte_crudo = engine.generate_report(snapshot, include_snapshot=True)
                 st.session_state.report = enriquecer_reporte(reporte_crudo)
             except Exception as e:
@@ -3926,7 +4026,7 @@ elif modulo == "📊 Reporte Proyecto":
     st.markdown("Reporte ejecutivo completo: factibilidad, indicadores, cronograma y flujo de caja detallado.")
     st.divider()
 
-    if not st.session_state.records:
+    if not _hay_base():
         st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 
@@ -6310,7 +6410,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
         unsafe_allow_html=True,
     )
 
-    if not st.session_state.records:
+    if not _hay_base():
         st.warning("⚠️ Carga la base de datos en el módulo 📂 Base de Datos.")
         st.stop()
 
@@ -7014,7 +7114,7 @@ elif modulo == "💼 Flujo Proyecto (Control)":
 elif modulo == "🆚 Comparación Proyectos":
     st.markdown("#### 🆚 Comparación de Proyectos")
 
-    if not st.session_state.records:
+    if not _hay_base():
         st.warning("⚠️ Primero carga la Base de Datos en el módulo **📂 Base de Datos**.")
         st.stop()
 

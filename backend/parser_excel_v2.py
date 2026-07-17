@@ -273,16 +273,13 @@ class ExcelBaseParser:
     # CONSTRUCCIÓN DE REGISTROS
     # ──────────────────────────────────────────
 
-    def _build_records(
-        self,
-        df: pd.DataFrame,
-        col_map: Dict[str, str]
-    ) -> List[BaseRecord]:
+    def _clean_columns(self, df: pd.DataFrame, col_map: Dict[str, str]) -> Dict:
         """
-        Construye BaseRecord a partir del DataFrame usando operaciones vectorizadas
-        de pandas (en vez de iterrows fila-a-fila) — crítico para archivos con
-        cientos de miles de filas, donde iterrows es órdenes de magnitud más lento.
-        Descarta filas inválidas con warning agregado (no uno por fila).
+        Limpieza vectorizada (sin iterrows) de las columnas del Excel. Devuelve
+        un dict con las Series limpias + la máscara de filas válidas. Es el núcleo
+        compartido por la ruta de objetos (_build_records) y la ruta DataFrame
+        (parse_dataframe), garantizando que ambas seleccionen exactamente las
+        mismas filas.
         """
         n_total = len(df)
 
@@ -341,15 +338,41 @@ class ExcelBaseParser:
         mask_valida = mask_proyecto & mask_fecha_datos & mask_fecha_flujo & mask_indice
         n_skipped = n_total - int(mask_valida.sum())
 
-        # Filtrar todas las series a las filas válidas, en el mismo orden
-        proyecto_f = proyecto_s[mask_valida].to_numpy()
-        fecha_datos_f = fecha_datos_s[mask_valida].dt.date.to_numpy()
-        fecha_flujo_f = fecha_flujo_s[mask_valida].dt.date.to_numpy()
-        indice_f = indice_s[mask_valida].to_numpy()
-        nombre_linea_f = nombre_linea_s[mask_valida].to_numpy()
-        participacion_f = participacion_s[mask_valida].to_numpy()
-        valor_f = valor_s[mask_valida].to_numpy()
-        fuente_f = fuente_s[mask_valida].to_numpy()
+        return {
+            "proyecto": proyecto_s, "fecha_datos": fecha_datos_s, "fecha_flujo": fecha_flujo_s,
+            "indice": indice_s, "nombre_linea": nombre_linea_s, "participacion": participacion_s,
+            "valor": valor_s, "fuente": fuente_s,
+            "mask_valida": mask_valida, "n_skipped": n_skipped, "n_valor_invalido": n_valor_invalido,
+        }
+
+    def _register_clean_warnings(self, cleaned: Dict) -> None:
+        if cleaned["n_skipped"] > 0:
+            self._warnings.append(
+                f"Total de filas omitidas durante el parsing: {cleaned['n_skipped']}"
+            )
+        if cleaned["n_valor_invalido"] > 0:
+            self._warnings.append(
+                f"Filas con valor no numérico (se asignó 0): {cleaned['n_valor_invalido']}"
+            )
+
+    def _build_records(
+        self,
+        df: pd.DataFrame,
+        col_map: Dict[str, str]
+    ) -> List[BaseRecord]:
+        """Ruta de objetos: materializa una lista de BaseRecord (usada por la API
+        legada / carga por subida). Para bases muy grandes preferir parse_dataframe."""
+        c = self._clean_columns(df, col_map)
+        m = c["mask_valida"]
+
+        proyecto_f = c["proyecto"][m].to_numpy()
+        fecha_datos_f = c["fecha_datos"][m].dt.date.to_numpy()
+        fecha_flujo_f = c["fecha_flujo"][m].dt.date.to_numpy()
+        indice_f = c["indice"][m].to_numpy()
+        nombre_linea_f = c["nombre_linea"][m].to_numpy()
+        participacion_f = c["participacion"][m].to_numpy()
+        valor_f = c["valor"][m].to_numpy()
+        fuente_f = c["fuente"][m].to_numpy()
 
         records: List[BaseRecord] = [
             BaseRecord(
@@ -365,16 +388,46 @@ class ExcelBaseParser:
             for i in range(len(proyecto_f))
         ]
 
-        if n_skipped > 0:
-            self._warnings.append(
-                f"Total de filas omitidas durante el parsing: {n_skipped}"
-            )
-        if n_valor_invalido > 0:
-            self._warnings.append(
-                f"Filas con valor no numérico (se asignó 0): {n_valor_invalido}"
-            )
-
+        self._register_clean_warnings(c)
         return records
+
+    def parse_dataframe(self, excel_bytes: bytes) -> Tuple[Optional[pd.DataFrame], List[str], List[str]]:
+        """
+        Ruta DataFrame: parsea el Excel a un DataFrame limpio SIN construir objetos
+        Pydantic. Crítico para bases de cientos de miles de filas — un DataFrame
+        ocupa una fracción de la RAM de una lista equivalente de BaseRecord.
+        Devuelve (df, warnings, errors). Columnas del df:
+        proyecto, fecha_datos, fecha_flujo, indice, nombre_linea, participacion,
+        valor, fuente (fecha_datos/fecha_flujo como date de Python).
+        """
+        self._warnings = []
+        self._errors = []
+        try:
+            df_raw = self._load_sheet(excel_bytes)
+        except Exception as exc:
+            self._errors.append(f"No se pudo leer el archivo Excel: {exc}")
+            return None, self._warnings, self._errors
+
+        col_map = self._detect_columns(df_raw)
+        if self._errors:
+            return None, self._warnings, self._errors
+
+        c = self._clean_columns(df_raw, col_map)
+        m = c["mask_valida"]
+
+        out = pd.DataFrame({
+            "proyecto": c["proyecto"][m].to_numpy(),
+            "fecha_datos": c["fecha_datos"][m].dt.date.to_numpy(),
+            "fecha_flujo": c["fecha_flujo"][m].dt.date.to_numpy(),
+            "indice": c["indice"][m].to_numpy(),
+            "nombre_linea": c["nombre_linea"][m].to_numpy(),
+            "participacion": c["participacion"][m].to_numpy(),
+            "valor": c["valor"][m].to_numpy().astype("float64"),
+            "fuente": c["fuente"][m].to_numpy(),
+        })
+
+        self._register_clean_warnings(c)
+        return out, self._warnings, self._errors
 
     @property
     def warnings(self) -> List[str]:
@@ -425,3 +478,17 @@ def parse_base_excel(
     )
 
     return records, response
+
+
+def parse_base_excel_df(
+    excel_bytes: bytes,
+    sheet_name: Optional[str] = None
+) -> Tuple[pd.DataFrame, List[str], List[str]]:
+    """
+    Variante de bajo consumo de memoria de parse_base_excel: devuelve
+    (DataFrame, warnings, errors) sin materializar objetos BaseRecord.
+    El DataFrame es apto para almacenarse compartido entre sesiones.
+    """
+    parser = ExcelBaseParser(sheet_name=sheet_name)
+    df, warnings, errors = parser.parse_dataframe(excel_bytes)
+    return df, warnings, errors
