@@ -756,22 +756,36 @@ def _nueva_firma_base():
 # compartido por todos los usuarios. Cada snapshot materializa SOLO las filas de
 # un (proyecto, corte) puntual — unos pocos miles de filas — bajo demanda.
 
-@st.cache_resource(show_spinner="Cargando base de datos…")
-def _load_shared_base():
-    """Lee todos los Excel de data/ en un único DataFrame compartido.
-    Devuelve (df, UploadResponse, files_meta) o (None, None, []) si no hay datos."""
-    if not _REPO_DATA_FOLDER.exists():
-        return None, None, []
+def _cargar_full_df(warnings):
+    """Construye el DataFrame crudo de la base. Prefiere un .parquet (carga en
+    ~2s con pico de memoria bajo) y solo cae a parsear Excel si no hay parquet.
+    IMPORTANTE: en la nube (1GB RAM) NO se debe parsear el .xlsx grande — openpyxl
+    dispara la memoria a >600MB y tumba el contenedor (OOM). Por eso se versiona un
+    base.parquet pre-generado. Devuelve (full_df|None, files_meta)."""
+    # ── 1) Preferir Parquet ──
+    parquets = sorted(
+        [p for p in _REPO_DATA_FOLDER.iterdir()
+         if p.suffix.lower() == ".parquet" and not p.name.startswith("~$")],
+        key=lambda p: p.stat().st_mtime,
+    )
+    if parquets:
+        p = parquets[-1]
+        full = pd.read_parquet(p)
+        if "version" not in full.columns:
+            full["version"] = 1
+        files_meta = [(p.name, datetime.fromtimestamp(p.stat().st_mtime),
+                       len(full), full["proyecto"].nunique())]
+        return full, files_meta
+
+    # ── 2) Fallback: parsear Excel (memoria alta; solo local o bases pequeñas) ──
     files = sorted(
         [p for p in _REPO_DATA_FOLDER.iterdir()
          if p.suffix.lower() in (".xlsx", ".xls") and not p.name.startswith("~$")],
         key=lambda p: p.stat().st_mtime,
     )
     if not files:
-        return None, None, []
-
+        return None, []
     dfs = []
-    warnings = []
     files_meta = []
     version_counter = {}
     for p in files:
@@ -783,7 +797,6 @@ def _load_shared_base():
             continue
         for wi in w:
             warnings.append(f"[{p.name}] {wi}")
-        # Asignar versión por (proyecto, fecha_datos) acumulando entre archivos
         keys = df[["proyecto", "fecha_datos"]].drop_duplicates()
         vmap = {}
         for pr, fd in zip(keys["proyecto"], keys["fecha_datos"]):
@@ -794,12 +807,26 @@ def _load_shared_base():
         dfs.append(df)
         files_meta.append((p.name, datetime.fromtimestamp(p.stat().st_mtime),
                            len(df), df["proyecto"].nunique()))
-
     if not dfs:
+        return None, []
+    return pd.concat(dfs, ignore_index=True), files_meta
+
+
+@st.cache_resource(show_spinner="Cargando base de datos…")
+def _load_shared_base():
+    """Carga la base como un único DataFrame compartido entre TODAS las sesiones.
+    Devuelve (df, UploadResponse, files_meta) o (None, None, []) si no hay datos."""
+    if not _REPO_DATA_FOLDER.exists():
         return None, None, []
 
-    full = pd.concat(dfs, ignore_index=True)
-    # Optimizar memoria: columnas de texto repetitivo como categorías
+    warnings = []
+    full, files_meta = _cargar_full_df(warnings)
+    if full is None or len(full) == 0:
+        return None, None, []
+
+    # Normalización de tipos común a ambos orígenes (parquet/excel)
+    full["fecha_datos"] = pd.to_datetime(full["fecha_datos"]).dt.date
+    full["fecha_flujo"] = pd.to_datetime(full["fecha_flujo"]).dt.date
     for _c in ("proyecto", "indice", "nombre_linea", "participacion", "fuente"):
         full[_c] = full[_c].astype("category")
     full["version"] = pd.to_numeric(full["version"], downcast="unsigned")

@@ -21,9 +21,10 @@ dist/
 *.xlsx
 *.xls
 ~$*
-# Excepción: los Excel en data/ SÍ se versionan (base de la app en la nube)
-!data/*.xlsx
-!data/*.xls
+# Excepción: la base de la nube en data/ SÍ se versiona.
+# Se versiona el .parquet (carga rápida, poca RAM); el .xlsx NO se sube al repo
+# (parsearlo en la nube dispara memoria y tumba el contenedor — usar el parquet).
+!data/*.parquet
 
 # ── Sistema operativo / editores ──
 Thumbs.db
