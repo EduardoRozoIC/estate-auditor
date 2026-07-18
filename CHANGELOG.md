@@ -134,3 +134,50 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
   segundo plano del tooling (se mata al cerrar el turno). Ahora se lanza como
   **proceso independiente** (`Start-Process`, ventana oculta, logs en
   `.cache/streamlit.*.log`). Para uso manual, `run_app.bat` hace lo mismo.
+
+---
+
+## Nube, migración de datos y OOM (2026-07)
+
+> Bitácora detallada de decisiones y el porqué de cada una en
+> [`docs/DECISIONES.md`](docs/DECISIONES.md).
+
+### Despliegue en Streamlit Community Cloud
+- Repo GitHub `EduardoRozoIC/estate-auditor` (público) → app en
+  `estructuracion-ic.streamlit.app`. Redeploy automático en cada push a `main`.
+- La base se sirve **desde el repo** (`data/`); el módulo "Base de Datos" ya no
+  permite subir archivos a mano.
+
+### Reorganización de módulos
+- "Cargar Base" renombrado a **📂 Base de Datos**.
+- **Reporte Inversionista** dejó de ser módulo y pasó a ser la **pestaña
+  🧑‍💼 Inversionista** (3ª) de Reporte Proyecto, reutilizando el selector del reporte
+  (sin duplicar proyectos/corte).
+- Ocultos del nav (código conservado, "en desarrollo"): 🔍 Auditoría, 💼 Flujo Proyecto.
+- Sidebar: enlace **ORIGINACIÓN** (Hugging Face) +50% y vinotinto; título → **Estructuración**.
+
+### Comparación de Proyectos
+- Tabla **única** (no tres tablas flex) con `table-layout:auto`, dos grupos + columna
+  **Diferencia (B−A)**, TIR FCO/K e hitos por grupo. Requisito: caber en pantalla sin
+  scroll. `_cmp_xirr` reescrito (barrido de signo + bisección) para TIR muy altas.
+
+### Flujo de Caja — anualización
+- Líneas `11.0` (Saldo Crédito) y `16.1` (FCL Acumulado) se anualizan como **saldo de
+  cierre** (último mes), no como suma.
+
+### Migración a ERConsolidado + rendimiento
+- Base ampliada a **59 proyectos / ~980K filas** (tabla ERConsolidado). Parser
+  `_build_records` **vectorizado** (fuera `iterrows`): 374s → 60s, salida idéntica.
+
+### Fix de memoria (OOM en la nube)
+- La base ahora es un **DataFrame compartido** entre sesiones (`@st.cache_resource`,
+  ~90MB) en vez de ~1M objetos Pydantic por sesión; cada snapshot materializa solo su
+  subconjunto.
+- Causa real del crash: **parsear el `.xlsx`** con openpyxl disparaba la RAM >600MB.
+  Solución definitiva: servir **`data/base.parquet`** (3.4MB, carga ~2.5s, pico ~145MB);
+  el `.xlsx` **ya no va al repo**. Nuevo `tools/build_parquet.py` para regenerarlo.
+
+### Documentación y protocolo (2026-07-18)
+- Añadidos **`CLAUDE.md`** + **`docs/`** (ARQUITECTURA, DOMINIO, DESPLIEGUE, DECISIONES)
+  y `tools/build_parquet.py`. Se estableció el **protocolo**: toda sesión documenta sus
+  cambios/decisiones **en el repo** (no en memoria local) y los sube junto con el código.

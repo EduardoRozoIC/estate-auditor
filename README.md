@@ -13,6 +13,12 @@ pinned: false
 
 Plataforma modular de análisis financiero inmobiliario.
 
+> 📖 **Contexto para desarrollo (y para Claude):** la fuente de verdad del contexto,
+> arquitectura, dominio, despliegue y decisiones está en **[`CLAUDE.md`](CLAUDE.md)** y
+> la carpeta **[`docs/`](docs/)**. Esta sección de módulos/formato de abajo puede estar
+> desactualizada; prioriza `CLAUDE.md` + `docs/`. La app se despliega en Streamlit Cloud
+> (`estructuracion-ic.streamlit.app`) y lee su base desde `data/base.parquet`.
+
 ## Módulos Disponibles (MVP)
 
 | Módulo | Descripción |
