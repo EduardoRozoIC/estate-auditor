@@ -107,6 +107,30 @@ son aproximadas (reconstruidas del historial).
   **protocolo obligatorio** (ver `CLAUDE.md`): documentar todos los cambios/decisiones en
   el repo, no en local, y hacer push de la documentación junto con el código.
 
+## 2026-07-28 — Base ampliada a dos hojas (control + pipeline), 60 proyectos
+
+- Nuevo consolidador fuente: `20260728 Consolidado.xlsx`, con **dos hojas** válidas
+  (mismo esquema `Proyecto/Fecha Datos/Fuente/P&G/TOTAL/Fecha/Valor` cada una):
+  - `HistoricoConsolidado` (37 proyectos, ~960K filas, `Fuente="Proyectos"`) — datos
+    reales de control/obra en ejecución.
+  - `ER_Pipeline` (26 proyectos, ~272K filas, `Fuente="Estructuración"`) — modelo de
+    factibilidad de proyectos aún en estructuración.
+  - 3 proyectos aparecen en ambas (`Mitika 2.1`, `Mitika 2.2`, `Praia E3`), con **solape
+    real** de `(proyecto, fecha_datos)` en varios cortes (misma fecha, dos fuentes).
+- **`tools/build_parquet.py` generalizado:** ya no asume una sola hoja. Detecta
+  automáticamente TODAS las hojas con el esquema válido (sin hardcodear nombres) y las
+  concatena asignando `version` de forma **acumulada por (proyecto, fecha_datos)** en el
+  orden en que aparecen las hojas en el libro — igual convención que
+  `backend/folder_loader.py` ya usaba para varios *archivos*. Los solapes quedan como
+  sub-versiones separadas y **seleccionables por separado** en la app (sufijo `-1`, `-2`),
+  sin mezclar ni descartar ninguna fuente. Se descartó concatenar con `version=1` fijo
+  para todo por generar snapshots incorrectos (mezcla de control + estructuración en la
+  misma vista).
+- Resultado: `data/base.parquet` → **60 proyectos, 1,231,861 filas, 18 cortes, 3.2 MB**.
+  35,927 filas quedaron con sub-versión por el solape. Verificado con `AppTest`: arranca
+  en 4s, 0 excepciones; los cortes solapados (p. ej. `Mitika 2.1: 2026-04-01-1 /
+  2026-04-01-2`) aparecen correctamente separados.
+
 ---
 
 <!-- Nuevas entradas al final. Formato sugerido:

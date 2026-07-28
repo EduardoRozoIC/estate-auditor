@@ -181,3 +181,12 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
 - Añadidos **`CLAUDE.md`** + **`docs/`** (ARQUITECTURA, DOMINIO, DESPLIEGUE, DECISIONES)
   y `tools/build_parquet.py`. Se estableció el **protocolo**: toda sesión documenta sus
   cambios/decisiones **en el repo** (no en memoria local) y los sube junto con el código.
+
+### Base ampliada: control + pipeline en dos hojas (2026-07-28)
+- Nuevo consolidador fuente con **dos hojas**: `HistoricoConsolidado` (proyectos en
+  control/obra) + `ER_Pipeline` (proyectos en estructuración). `tools/build_parquet.py`
+  generalizado para detectar y combinar automáticamente **todas** las hojas válidas de un
+  archivo, versionando los solapes (mismo proyecto+corte en ambas hojas) como sub-versiones
+  separadas (`-1`, `-2`) — nunca se mezclan.
+- Base resultante: **60 proyectos, 1,231,861 filas, 18 cortes** (`data/base.parquet`,
+  3.2MB). Verificado con `AppTest`: arranca en 4s sin excepciones.
