@@ -147,6 +147,13 @@ son aproximadas (reconstruidas del historial).
   de estructuración, hay que volver a cargar un archivo con ambas hojas (como el
   consolidador del 2026-07-28).
 
+### Actualización sobre el mismo archivo (2026-08-14, misma tarde)
+- El usuario actualizó `20260814 Pipeline.xlsx` en el mismo día (mismo nombre de
+  archivo, contenido refrescado). Se repitió el flujo estándar sin cambios de proceso.
+- Resultado: `data/base.parquet` → **29 proyectos, 293.049 filas, 12 cortes** (5 filas
+  más que la corrida anterior del mismo día). Verificado con `AppTest`: arranca en
+  1.6s, 0 excepciones.
+
 ---
 
 <!-- Nuevas entradas al final. Formato sugerido:
