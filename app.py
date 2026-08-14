@@ -812,9 +812,27 @@ def _cargar_full_df(warnings):
     return pd.concat(dfs, ignore_index=True), files_meta
 
 
+def _shared_base_signature():
+    """Firma (nombre+tamaño+mtime) de los archivos candidatos en data/ (parquet o
+    excel). Se usa como argumento de _load_shared_base para forzar su recálculo
+    cuando el archivo cambia: @st.cache_resource cachea por el resto de la vida
+    del proceso, y algunos despliegues de Streamlit Cloud actualizan el código y
+    los datos sin reiniciar el proceso Python — sin esta firma, un push nuevo
+    seguiría sirviendo la base vieja indefinidamente."""
+    if not _REPO_DATA_FOLDER.exists():
+        return None
+    try:
+        cand = [p for p in _REPO_DATA_FOLDER.iterdir()
+                if p.suffix.lower() in (".parquet", ".xlsx", ".xls")
+                and not p.name.startswith("~$")]
+        return tuple(sorted((p.name, p.stat().st_size, int(p.stat().st_mtime)) for p in cand))
+    except Exception:
+        return None
+
 @st.cache_resource(show_spinner="Cargando base de datos…")
-def _load_shared_base():
+def _load_shared_base(_sig=None):
     """Carga la base como un único DataFrame compartido entre TODAS las sesiones.
+    `_sig` (ver _shared_base_signature) es la clave de invalidación del caché.
     Devuelve (df, UploadResponse, files_meta) o (None, None, []) si no hay datos."""
     if not _REPO_DATA_FOLDER.exists():
         return None, None, []
@@ -848,10 +866,10 @@ def _load_shared_base():
     return full, response, files_meta
 
 def _hay_base():
-    return _load_shared_base()[0] is not None
+    return _load_shared_base(_shared_base_signature())[0] is not None
 
 def _get_base_df():
-    return _load_shared_base()[0]
+    return _load_shared_base(_shared_base_signature())[0]
 
 def _records_subset(proyecto, fecha_obj, version):
     """Materializa SOLO las filas de un (proyecto, corte, versión) como BaseRecord,
@@ -927,7 +945,7 @@ _load_manual_ind()
 # compartida entre todas las sesiones. Solo se publican en session_state el
 # catálogo (liviano) y metadatos — nunca la tabla completa.
 try:
-    _shared_df, _shared_resp, _shared_meta = _load_shared_base()
+    _shared_df, _shared_resp, _shared_meta = _load_shared_base(_shared_base_signature())
     if _shared_df is not None:
         st.session_state.upload_response = _shared_resp
         st.session_state.files_processed = _shared_meta

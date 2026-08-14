@@ -94,7 +94,12 @@ Como `build` ya filtra internamente, pasarle el subconjunto pre-filtrado de
 
 ## Caché y memoización (en `app.py`)
 
-- `@st.cache_resource _load_shared_base()`: la base compartida (una vez por proceso).
+- `@st.cache_resource _load_shared_base(_sig)`: la base compartida (una vez por
+  proceso). `_sig` viene de `_shared_base_signature()` (nombre+tamaño+mtime de los
+  archivos en `data/`) — es **obligatorio** pasarlo en cada llamada: sin él, un
+  `git push` con un `base.parquet` nuevo puede seguir sirviendo la base vieja
+  indefinidamente si el proceso de Streamlit Cloud no se reinicia en el redeploy
+  (ver `docs/DECISIONES.md`, fix del 2026-08-14).
 - `_build_snapshot()`: memoiza snapshots por sesión en `st.session_state["_snap_memo"]`,
   con clave `(base_sig, proyecto, fecha_iso, version)`. `base_sig` se renueva con
   `_nueva_firma_base()`.

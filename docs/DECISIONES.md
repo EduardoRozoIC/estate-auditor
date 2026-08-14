@@ -153,6 +153,37 @@ son aproximadas (reconstruidas del historial).
 - Resultado: `data/base.parquet` → **29 proyectos, 293.049 filas, 12 cortes** (5 filas
   más que la corrida anterior del mismo día). Verificado con `AppTest`: arranca en
   1.6s, 0 excepciones.
+- **Tras este push, la app en la nube siguió mostrando la base vieja** — ver el fix
+  de fondo justo abajo.
+
+## 2026-08-14 — Fix: `@st.cache_resource` no se invalidaba al actualizar la base
+
+- **Síntoma:** tras hacer push de un `data/base.parquet` nuevo (mismo nombre de
+  archivo, contenido distinto), la app desplegada seguía mostrando la información
+  vieja — el usuario reportó "la página me sale desactualizada".
+- **Causa raíz:** `_load_shared_base()` estaba decorada con `@st.cache_resource`
+  **sin ningún argumento**, es decir, sin ninguna clave de caché que dependiera del
+  contenido del archivo. `cache_resource` guarda el resultado para el resto de la
+  vida del **proceso** de Streamlit, no por deploy. Si Streamlit Community Cloud
+  actualiza el código/datos de un redeploy ligero sin matar y recrear el proceso
+  Python subyacente (algo que no está garantizado que ocurra en cada push), el
+  DataFrame viejo se queda servido indefinidamente sin que ningún nuevo `git push`
+  lo refresque — el usuario tendría que esperar a que el proceso se reciclara por
+  otra razón (redeploy pesado, reinicio manual, etc.), de forma impredecible.
+- **Fix:** se agregó `_shared_base_signature()` — una firma ligera
+  (nombre+tamaño+mtime) de los archivos candidatos en `data/` (parquet o excel) — y
+  se pasa como argumento a `_load_shared_base(_sig)`. Como `st.cache_resource`
+  incluye los argumentos en la clave de caché, cualquier cambio en el archivo
+  (nuevo `git push` con un `base.parquet` distinto) genera una firma distinta y
+  fuerza el recálculo, sin importar si el proceso subyacente se reinició o no.
+  Mismo patrón ya usado antes para el caché en disco (obsoleto, ver "Saga OOM →
+  Parquet"), ahora aplicado también al `cache_resource` en memoria.
+- Verificado con `AppTest`: sigue arrancando sin excepciones, mismos datos
+  correctos (29 proyectos, 293.049 filas).
+- **Lección para el protocolo:** cualquier `@st.cache_resource`/`@st.cache_data`
+  que envuelva una lectura de archivo debe llevar el contenido/mtime del archivo
+  como parte de su clave de caché — nunca asumir que un redeploy de Streamlit
+  Cloud reinicia el proceso desde cero.
 
 ---
 

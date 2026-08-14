@@ -197,3 +197,11 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
   (control+estructuración), a petición explícita del usuario.
 - Base resultante: **29 proyectos, 293.044 filas, 12 cortes** (`data/base.parquet`,
   0.8MB). Verificado con `AppTest`: arranca en 3.8s sin excepciones.
+
+### Fix: la app en la nube no reflejaba actualizaciones de la base (2026-08-14)
+- `@st.cache_resource _load_shared_base()` no tenía ninguna clave de caché ligada
+  al archivo → un `git push` con `base.parquet` nuevo podía seguir sirviendo la
+  base vieja indefinidamente si el proceso de Streamlit Cloud no se reiniciaba en
+  el redeploy. Fix: se agregó `_shared_base_signature()` (nombre+tamaño+mtime) como
+  argumento obligatorio de `_load_shared_base()`, forzando el recálculo cuando el
+  archivo cambia. Ver `docs/DECISIONES.md` para el detalle completo.
