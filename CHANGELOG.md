@@ -190,3 +190,10 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
   separadas (`-1`, `-2`) — nunca se mezclan.
 - Base resultante: **60 proyectos, 1,231,861 filas, 18 cortes** (`data/base.parquet`,
   3.2MB). Verificado con `AppTest`: arranca en 4s sin excepciones.
+
+### Base reemplazada por Pipeline.xlsx, solo estructuración (2026-08-14)
+- `20260814 Pipeline.xlsx` trae una sola hoja (`ER_Pipeline`, solo proyectos en
+  estructuración) — reemplaza por completo la base anterior de 60 proyectos
+  (control+estructuración), a petición explícita del usuario.
+- Base resultante: **29 proyectos, 293.044 filas, 12 cortes** (`data/base.parquet`,
+  0.8MB). Verificado con `AppTest`: arranca en 3.8s sin excepciones.

@@ -131,6 +131,22 @@ son aproximadas (reconstruidas del historial).
   en 4s, 0 excepciones; los cortes solapados (p. ej. `Mitika 2.1: 2026-04-01-1 /
   2026-04-01-2`) aparecen correctamente separados.
 
+## 2026-08-14 — Base reemplazada por Pipeline.xlsx (solo estructuración), 29 proyectos
+
+- Fuente: `20260814 Pipeline.xlsx`. A diferencia del consolidador del 2026-07-28 (dos
+  hojas: control + estructuración), este archivo trae **una sola hoja válida**
+  (`ER_Pipeline`, `Fuente="Estructuración"`) — no incluye los proyectos de control/obra
+  (`HistoricoConsolidado`). `tools/build_parquet.py` ya soportaba esto sin cambios
+  (detecta automáticamente cuántas hojas válidas hay).
+- Resultado: `data/base.parquet` → **29 proyectos, 293.044 filas, 12 cortes, 0.8 MB**
+  (29 filas omitidas en la limpieza). Verificado con `AppTest`: arranca en 3.8s, 0
+  excepciones.
+- Reemplaza por completo la base anterior (60 proyectos / control+estructuración) — se
+  ejecutó a petición explícita del usuario, no es una fusión ni una actualización
+  incremental. Si en el futuro se necesita volver a tener proyectos de control además
+  de estructuración, hay que volver a cargar un archivo con ambas hojas (como el
+  consolidador del 2026-07-28).
+
 ---
 
 <!-- Nuevas entradas al final. Formato sugerido:
