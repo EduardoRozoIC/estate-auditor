@@ -187,6 +187,34 @@ son aproximadas (reconstruidas del historial).
 
 ---
 
+## 2026-09-23 — Fix: espacios duros (NBSP) corrompían el parseo de índices P&G
+
+- **Síntoma reportado:** un comentario de calidad de datos sobre el consolidador
+  señaló que algunos nombres de proyecto y líneas de P&G (`3.22 Costo Directo
+  Construccion`, `3.24 Urbanismo Interno`) llegaban con **espacio duro (NBSP,
+  U+00A0)** en vez de espacio normal — típico de copiar/pegar desde otra hoja o un
+  PDF. Afectaba 18.419 filas en el archivo reportado.
+- **Causa raíz:** la columna "proyecto" ya se limpiaba con `\s+` → espacio normal
+  (esa regex de Python **sí** normaliza NBSP), pero la separación de la columna
+  combinada `"<índice> <descripción>"` (formato "P&G", como en `ER_Pipeline`) usaba
+  `.str.split(" ", n=1)` con un espacio **literal** — que NO reconoce NBSP. Con dos
+  NBSP seguidos tras el índice, el split fallaba silenciosamente y el número quedaba
+  pegado a la descripción, corrompiendo `indice`/`nombre_linea` para esas filas.
+- **Fix:** normalizar con `\s+` → espacio normal **antes** de separar índice y
+  nombre (`backend/parser_excel_v2.py`, `_clean_columns`). Aplica tanto a la ruta
+  de columna combinada como a la ruta con columna `nombre_linea` separada.
+- **Verificado** contra el archivo real (`20260814 Pipeline.xlsx`): el índice
+  `3.22` ahora separa correctamente (`nombre_linea = "Costo Directo Construccion"`,
+  sin residuo); cero filas con NBSP en `proyecto`/`indice`/`nombre_linea` en toda la
+  base regenerada.
+- **Nota:** el caso específico reportado (proyectos "Bosque Central") **no aplica
+  a la base actual** — ese proyecto no existe en `20260814 Pipeline.xlsx` (solo
+  estructuración); pertenecía al consolidador completo del 2026-07-28
+  (control+estructuración). El fix queda igual de vigente para proteger cualquier
+  carga futura que sí lo incluya.
+
+---
+
 <!-- Nuevas entradas al final. Formato sugerido:
 ## AAAA-MM-DD — Título corto
 Qué se hizo, por qué, alternativas descartadas, archivos tocados.

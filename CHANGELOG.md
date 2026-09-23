@@ -205,3 +205,11 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
   el redeploy. Fix: se agregó `_shared_base_signature()` (nombre+tamaño+mtime) como
   argumento obligatorio de `_load_shared_base()`, forzando el recálculo cuando el
   archivo cambia. Ver `docs/DECISIONES.md` para el detalle completo.
+
+### Fix: espacios duros (NBSP) rompían la separación de índices P&G (2026-09-23)
+- Un reporte de calidad de datos detectó nombres de proyecto y líneas de P&G con
+  espacio duro (NBSP) en vez de espacio normal. La columna "proyecto" ya se
+  limpiaba bien; la separación de la columna combinada `"<índice> <descripción>"`
+  no, porque partía el texto por un espacio literal. Fix en
+  `backend/parser_excel_v2.py`: normalizar `\s+` → espacio normal antes de separar.
+  Verificado contra el archivo real, cero residuos de NBSP. Ver `docs/DECISIONES.md`.

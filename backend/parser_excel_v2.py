@@ -296,12 +296,17 @@ class ExcelBaseParser:
         mask_fecha_flujo = fecha_flujo_s.notna()
 
         # ── Índice y Nombre ──
+        # \s+ normaliza también espacios duros (NBSP, U+00A0) que a veces llegan al
+        # copiar/pegar desde otra hoja o un PDF — sin esto, "3.22\xa0\xa0Costo..."
+        # no se separa bien en índice + nombre (el split literal por " " no los ve).
         indice_raw_s = df[col_map["indice"]].astype(str).str.strip()
+        indice_raw_s = indice_raw_s.str.replace(r"\s+", " ", regex=True)
         mask_indice = df[col_map["indice"]].notna() & (indice_raw_s != "") & (indice_raw_s.str.lower() != "nan")
 
         if col_map.get("nombre_linea"):
             nombre_col = df[col_map["nombre_linea"]]
             nombre_linea_s = nombre_col.astype(str).str.strip()
+            nombre_linea_s = nombre_linea_s.str.replace(r"\s+", " ", regex=True)
             nombre_linea_s = nombre_linea_s.where(nombre_col.notna(), "")
             # Normalizar índice: forzar punto decimal si el patrón lo sugiere
             _comma_pattern = indice_raw_s.str.match(r"^\d+[,\.]\d")
