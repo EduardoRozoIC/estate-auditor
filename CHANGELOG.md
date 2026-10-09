@@ -213,3 +213,11 @@ de git; para revertir un cambio puntual usar `git log` + `git revert <hash>` o
   no, porque partía el texto por un espacio literal. Fix en
   `backend/parser_excel_v2.py`: normalizar `\s+` → espacio normal antes de separar.
   Verificado contra el archivo real, cero residuos de NBSP. Ver `docs/DECISIONES.md`.
+
+### Base cargada desde el Data Model de `000005 CONSOLIDADOR UNIFICADO TOTAL.xlsm` (2026-10-09)
+- La fuente es la tabla `ERConsolidado` del **modelo de datos (Power Pivot)** del
+  consolidador, extraída vía Excel COM + DAX (no desde las hojas). Reemplaza la base
+  anterior de 29 proyectos.
+- Base resultante: **68 proyectos, 22 cortes, 1.518.941 filas** (`data/base.parquet`,
+  3.6MB; control + estructuración, sin solapes). `AppTest`: 2.5s, 0 excepciones.
+  Detalle y método de extracción en `docs/DECISIONES.md`.

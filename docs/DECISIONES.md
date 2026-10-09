@@ -213,6 +213,30 @@ son aproximadas (reconstruidas del historial).
   (control+estructuración). El fix queda igual de vigente para proteger cualquier
   carga futura que sí lo incluya.
 
+## 2026-10-09 — Base cargada desde el Data Model (Power Pivot) de `000005 CONSOLIDADOR UNIFICADO TOTAL.xlsm`
+
+- **Fuente nueva y distinta:** ya no es un Excel con hojas de datos, sino el **modelo
+  de datos embebido** del consolidador (`xl/model/item.data`). El modelo tiene 3 tablas:
+  `ERConsolidado` (1.518.972 filas, esquema idéntico al de la app: Proyecto/Fecha
+  Datos/Fuente/P&G/TOTAL/Fecha/Valor), `McTotalFlujoProy` y `McTotalFlujoProy 2`
+  (~88K filas c/u, otra estructura — **no cargadas**, no encajan con el esquema).
+  Se cargó solo `ERConsolidado`.
+- **Cómo se extrajo (reproducible):** no se leen las hojas con openpyxl. Se abre el
+  libro con Excel por COM y se consulta el modelo con DAX vía la conexión embebida
+  (`wb.Model.DataModelConnection.ModelConnection.ADOConnection`), p. ej.
+  `EVALUATE SELECTCOLUMNS(ERConsolidado, ..., FORMAT([Fecha Datos],"yyyy-mm-dd"), ...)`.
+  Fechas formateadas como texto ISO para evitar ambigüedad de configuración regional.
+  Se vuelca a TSV en bloques de 100K (`Recordset.GetString`) y luego se limpia con el
+  mismo `ExcelBaseParser._clean_columns` del proyecto y se escribe `data/base.parquet`.
+  Tarda ~3-4 min en total. Si el archivo está bloqueado por OneDrive (permiso denegado
+  desde Python), basta **copiarlo primero** a una carpeta local y trabajar sobre la copia.
+- **Resultado:** `data/base.parquet` → **68 proyectos, 22 cortes, 1.518.941 filas, 3.6
+  MB** (31 filas omitidas en limpieza, 0 valores no numéricos, 0 NBSP). Fuentes:
+  Proyectos 1.145.885 / Estructuración 373.056. **Sin solapes** de proyecto+corte entre
+  fuentes, por eso `version=1` para todo (no hay sub-versiones). `AppTest`: arranca en
+  2.5s, 0 excepciones.
+- **Reemplaza por completo** la base anterior (29 proyectos, solo estructuración).
+
 ---
 
 <!-- Nuevas entradas al final. Formato sugerido:
